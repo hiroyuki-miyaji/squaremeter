@@ -80,7 +80,8 @@
         }
 
         function placeMarkers(locations) {
-            locations.forEach(location => {
+		    const locations = data.body;   // ← 配列を正しく取り出す
+			locations.forEach(location => {
                 if (!location.lat || !location.lng) return;
 
                 const position = { lat: parseFloat(location.lat), lng: parseFloat(location.lng) };
@@ -117,4 +118,5 @@
     <script async defer src="https://maps.googleapis.com/maps/api/js?key=AIzaSyCFsUzLKS7z-n6zAYK7gXf-mm6iVXGrT1A&callback=initMap"></script>
 </body>
 </html>
+
 
