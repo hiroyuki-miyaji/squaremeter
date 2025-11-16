@@ -75,7 +75,7 @@
         function fetchMarkers() {
             fetch(apiUrl)
                 .then(response => response.json())
-                .then(data => placeMarkers(data.body))
+                .then(data => placeMarkers(data))
                 .catch(error => console.error("❌ データ取得エラー:", error));
         }
 
@@ -117,6 +117,7 @@
     <script async defer src="https://maps.googleapis.com/maps/api/js?key=AIzaSyCFsUzLKS7z-n6zAYK7gXf-mm6iVXGrT1A&callback=initMap"></script>
 </body>
 </html>
+
 
 
 
