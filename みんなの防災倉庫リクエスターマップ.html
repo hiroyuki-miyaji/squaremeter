@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>マップマーカー表示</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            height: 100vh;
+            overflow: hidden;
+        }
+        h2, p {
+            text-align: left;
+            padding: 0px;
+        }
+        #map {
+            width: 100%;
+            height: 85vh;
+            min-height: 400px;
+            background-color: #e0e0e0;
+            position: relative;
+        }
+        .info-window {
+            max-width: 400px;
+            max-height: none;
+            overflow: visible;
+        }
+        .info-window img {
+            width: 100%;
+            height: auto;
+            border-radius: 5px;
+            margin-bottom: 8px;
+        }
+        @media (max-width: 768px) {
+            #map {
+                height: 80vh;
+            }
+        }
+        @media (max-width: 480px) {
+            #map {
+                height: 75vh;
+            }
+            h2, p {
+                font-size: 14px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <h2>みんなの防災倉庫リクエスターマップ</h2>
+    <p>現在募集中のリクエスターをマップ表示します。</p>
+    <div id="map"></div>
+
+    <script>
+        let map;
+        let currentInfoWindow = null;
+        const apiUrl = "https://prod-36.japaneast.logic.azure.com:443/workflows/e08aeb7d6fb9454a9797d9a46d66ddee/triggers/When_an_HTTP_request_is_received/paths/invoke?api-version=2016-10-01&sp=%2Ftriggers%2FWhen_an_HTTP_request_is_received%2Frun&sv=1.0&sig=nfLRWr0R4LY-SXEhE8cKxJGM7nuC5HLsyikgCdxkU58";
+
+        function initMap() {
+            map = new google.maps.Map(document.getElementById("map"), {
+                center: { lat: 34.391148, lng: 132.457638 },
+                zoom: 10
+            });
+            google.maps.event.addListenerOnce(map, 'idle', function() {
+                google.maps.event.trigger(map, 'resize');
+            });
+            fetchMarkers();
+        }
+
+        function fetchMarkers() {
+            fetch(apiUrl)
+                .then(response => response.json())
+                .then(data => placeMarkers(data))
+                .catch(error => console.error("❌ データ取得エラー:", error));
+        }
+
+        function placeMarkers(requesters) {
+            requesters.forEach(requester => {
+                if (!requester.lat || !requester.lng) return;
+
+                const position = { lat: parseFloat(requester.lat), lng: parseFloat(requester.lng) };
+                const marker = new google.maps.Marker({
+                    position,
+                    map,
+                    title: requester.detail
+                });
+
+                const infoWindow = new google.maps.InfoWindow({
+                    content: `
+                        <div class="info-window">
+                            <h3>リクエスター名称：${requester.dealname}</h3>
+                            <p><strong>リクエスター種別:</strong> ${requester.dealtype}</p>
+                            <p><strong>設置希望場所:</strong> ${requester.location}</p>
+                            <p><strong>設置希望台数:</strong> ${requester.number}</p>
+                            <p><strong>登録日:</strong> ${requester.registered}</p>
+                            <p><strong>情報提供の同意有無:</strong> ${requester.agree}</p>
+                            <p><strong>代理店:</strong> ${requester.seller}</p>
+                            <p><a href="https://disaportal.gsi.go.jp/hazardmap/maps/index.html?ll=${requester.lat},${requester.lng}&z=15&base=pale&ls=seamless%7Ctakashio_sinsuisin_raster%2C0.8%7Cekijouka_zenkoku%2C0.8%7Ctsunamishinsui_raster%2C0.8%7Ctameike_raster%2C0.8%7Cnaisui_raster%2C0.8%7Cflood_l2_kaokutoukai_kagan%2C0.8%7Cflood_l2_kaokutoukai_hanran%2C0.8%7Cflood_l2_keizoku%2C0.8%7Cflood_list%2C0.8%7Cflood_l1%2C0.8%7Cflood_list_l2%2C0.75%7Cdosha_kiken_nadare%2C0.8%7Cdosha_keikai_jisuberi%2C0.8%7Cdosha_keikai_dosekiryu%2C0.8%7Cdosha_keikai_kyukeisha%2C0.8%7Cyoboukiseikukan_multi%2C0.8%7Cjizenkisei_00_multi%2C0.8%7Ckansui_multi%2C0.8%7CchikeiBunrui50000_multi%2C0.8%7Cdisaster3%7Cdisaster5%7Cdisaster1%7Cdisaster2%7Cexperimental_landformclassification&disp=0101110000010111111000001&vs=c1j0l0u0t0h0z0" target="_blank"><strong>この付近のハザードマップ</a></strong><br>
+							※ハザードマップポータルサイトへ遷移します</p>
+                            <p><a href="https://maps.gsi.go.jp/#16/${requester.lat}/${requester.lng}/&base=std&ls=std%7Cskhb01&disp=11&lcd=skhb01&vs=c1g1j0h0k0l0u0t0z0r0s0m0f0&d=m" target="_blank"><strong>この付近の指定緊急避難所</strong></a><br>
+							※国土地理院サイトへ遷移します</p>
+							<p><a href="https://aedm.jp/" target="_blank"><strong>近隣のAED</strong></a><br>
+							※日本全国AEDマップへ遷移します</p>
+							<p><a href="https://www.jma.go.jp/bosai/risk/#lat:${requester.lat}/lon:${requester.lng}/zoom:11/colordepth:normal/elements:land" target="_blank"><strong>気象庁防災気象マップ</strong></a><br>
+							※気象庁防災気象マップへ遷移します</p>
+                        </div>`
+                });
+
+                marker.addListener("click", () => {
+                    if (currentInfoWindow) {
+                        currentInfoWindow.close();
+                    }
+                    infoWindow.open(map, marker);
+                    currentInfoWindow = infoWindow;
+                });
+            });
+        }
+    </script>
+    <script async defer src="https://maps.googleapis.com/maps/api/js?key=AIzaSyCFsUzLKS7z-n6zAYK7gXf-mm6iVXGrT1A&callback=initMap"></script>
+</body>
+</html>
