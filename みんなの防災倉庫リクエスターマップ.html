@@ -63,7 +63,7 @@
         function initMap() {
             map = new google.maps.Map(document.getElementById("map"), {
                 center: { lat: 34.391148, lng: 132.457638 },
-                zoom: 10
+                zoom: 12
             });
             google.maps.event.addListenerOnce(map, 'idle', function() {
                 google.maps.event.trigger(map, 'resize');
@@ -123,3 +123,4 @@
     <script async defer src="https://maps.googleapis.com/maps/api/js?key=AIzaSyCFsUzLKS7z-n6zAYK7gXf-mm6iVXGrT1A&callback=initMap"></script>
 </body>
 </html>
+
