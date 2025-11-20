@@ -316,17 +316,40 @@ function placeMarkers(locations) {
             currentInfoWindow = iw;
         });
 
-        const item = document.createElement("div");
-        item.className = "candidate-item";
-        item.innerHTML = `<strong>${index + 1}. ${loc.name}</strong><br>${loc.address}`;
-        item.onclick = () => {
-            map.panTo(pos);
-            map.setZoom(16);
-            if (currentInfoWindow) currentInfoWindow.close();
-            iw.open(map, marker);
-            currentInfoWindow = iw;
-        };
-        listElement.appendChild(item);
+		const item = document.createElement("div");
+		item.className = "candidate-item";
+
+		const iconUrl = getIconUrl(loc.suitability);
+
+		// 適性に応じた表示色クラス
+		const suitabilityClass =
+			loc.suitability === "適合"
+				? "suitable"
+				: loc.suitability === "不適合"
+				? "unsuitable"
+				: "conditional";
+
+		item.innerHTML = `
+			<div style="display:flex; gap:8px; align-items:flex-start;">
+				<img src="${iconUrl}" width="20" height="20">
+
+				<div>
+					<strong>${index + 1}. ${loc.name}</strong><br>
+					<span class="${suitabilityClass}">${loc.suitability}</span><br>
+					<small>${loc.address}</small>
+				</div>
+			</div>
+		`;
+
+		item.onclick = () => {
+			map.panTo(pos);
+			map.setZoom(16);
+			if (currentInfoWindow) currentInfoWindow.close();
+			iw.open(map, marker);
+			currentInfoWindow = iw;
+		};
+
+		listElement.appendChild(item);
     });
 }
 </script>
@@ -334,3 +357,4 @@ function placeMarkers(locations) {
 <script async defer src="https://maps.googleapis.com/maps/api/js?key=AIzaSyCFsUzLKS7z-n6zAYK7gXf-mm6iVXGrT1A&callback=initMap"></script>
 </body>
 </html>
+
