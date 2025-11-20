@@ -1,313 +1,320 @@
 <!DOCTYPE html>
 <html lang="ja">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>みんなの防災倉庫候補地マップ</title>
-    <style>
-        body {
-            font-family: Arial, sans-serif;
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-            height: 100vh;
-        }
-        .controls {
-            padding: 10px;
-            background: #f4f4f4;
-            display: flex;
-            gap: 10px;
-            align-items: center;
-        }
-        #address-input {
-            padding: 8px;
-            border: 1px solid #ccc;
-            flex-grow: 3; 
-            max-width: 600px; 
-        }
-        #search-button {
-            padding: 8px 15px;
-            background-color: #0078d4;
-            color: white;
-            border: none;
-            cursor: pointer;
-            border-radius: 4px;
-        }
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>みんなの防災倉庫候補地マップ</title>
+
+<style>
+    body {
+        font-family: Arial, sans-serif;
+        margin: 0;
+        padding: 0;
+        height: 100vh;
+        overflow: hidden;
+    }
+    .controls {
+        padding: 10px;
+        background: #f4f4f4;
+        display: flex;
+        gap: 10px;
+        align-items: center;
+    }
+    #address-input {
+        padding: 8px;
+        border: 1px solid #ccc;
+        flex-grow: 3;
+        max-width: 600px;
+    }
+    #search-button {
+        padding: 8px 15px;
+        background-color: #0078d4;
+        color: white;
+        border: none;
+        cursor: pointer;
+        border-radius: 4px;
+    }
+
+    /* 📱 スマホ対応：高さがゼロにならないように */
+    #map-container {
+        display: flex;
+        height: calc(100vh - 140px);
+        min-height: 400px;
+        overflow: hidden;
+    }
+    #map {
+        width: 70%;
+        height: 100%;
+    }
+    #sidebar {
+        width: 30%;
+        height: 100%;
+        overflow-y: auto;
+        padding: 15px;
+        border-left: 1px solid #ccc;
+        background-color: #fff;
+    }
+
+    @media (max-width: 768px) {
         #map-container {
-            display: flex;
-            height: 80vh; 
-            min-height: 400px;
-            overflow: hidden;
+            flex-direction: column;
+            height: calc(100vh - 140px);
         }
         #map {
-            width: 70%;
-            background-color: #e0e0e0;
+            width: 100%;
+            height: 60%;
         }
         #sidebar {
-            width: 30%;
-            padding: 15px;
-            overflow-y: auto;
-            border-left: 1px solid #ccc;
-            background-color: #ffffff;
+            width: 100%;
+            height: 40%;
         }
-        .info-window h3 { margin-top: 0; color: #0078d4; }
-        .suitable { color: #1e8449; font-weight: bold; }
-        .unsuitable { color: #c0392b; font-weight: bold; }
-        .conditional { color: #f39c12; font-weight: bold; }
+    }
 
-        .candidate-item {
-            border-bottom: 1px dashed #eee;
-            padding: 8px 0;
-            cursor: pointer;
-        }
-        .candidate-item:hover {
-            background-color: #f9f9f9;
-        }
+    .suitable { color: #1e8449; font-weight: bold; }
+    .unsuitable { color: #c0392b; font-weight: bold; }
+    .conditional { color: #f39c12; font-weight: bold; }
 
-        .disaster-links-popup a {
-            display: block;
-            margin-top: 5px;
-            font-size: 0.9em;
-            color: #0078d4;
-            text-decoration: underline;
-        }
-    </style>
+    .candidate-item {
+        border-bottom: 1px dashed #eee;
+        padding: 8px 0;
+        cursor: pointer;
+    }
+    .candidate-item:hover {
+        background-color: #f9f9f9;
+    }
+    .disaster-links-popup a {
+        display: block;
+        margin-top: 5px;
+        color: #0078d4;
+        text-decoration: underline;
+    }
+</style>
+
 </head>
 <body>
-    <h2>みんなの防災倉庫候補地マップ</h2>
-	<a href="https://hiroyuki-miyaji.github.io/squaremeter/みんなの防災倉庫リクエスターマップ.html">みんなの防災倉庫リクエスターマップ</a><br>
-    <div class="controls">
-        <input type="text" id="address-input" placeholder="地図をクリックして地点を選択、または住所を入力してください">
-        <button id="search-button">候補地を検索</button>
+
+<h2>みんなの防災倉庫候補地マップ</h2>
+<a href="https://hiroyuki-miyaji.github.io/squaremeter/%E3%81%BF%E3%82%93%E3%81%AA%E3%81%AE%E9%98%B2%E7%81%BD%E5%80%89%E5%BA%AB%E3%83%AA%E3%82%AF%E3%82%A8%E3%82%B9%E3%82%BF%E3%83%BC%E3%83%9E%E3%83%83%E3%83%97.html">みんなの防災倉庫リクエスターマップ<a/>
+<div class="controls">
+    <input type="text" id="address-input" placeholder="地図をクリックして地点を選択、または住所を入力してください">
+    <button id="search-button">候補地を検索</button>
+</div>
+
+<div id="map-container">
+    <div id="map"></div>
+    <div id="sidebar">
+        <h3>候補地一覧</h3>
+        <div id="candidates-list">結果を検索するとここに表示されます。</div>
     </div>
+</div>
+
+<script>
+let map;
+let currentInfoWindow = null;
+let markers = [];
+const API_KEY = "AIzaSyCFsUzLKS7z-n6zAYK7gXf-mm6iVXGrT1A";
+
+const LOGIC_APP_URL =
+ "https://prod-47.japaneast.logic.azure.com:443/workflows/690c844c958e440b959b6723c69c5ef8/triggers/When_an_HTTP_request_is_received/paths/invoke?api-version=2016-10-01&sp=%2Ftriggers%2FWhen_an_HTTP_request_is_received%2Frun&sv=1.0&sig=Gy1WOfIlVTGYqj1DsclsX0Uai1yZyugwuMdL425NOxU";
+
+function getIconUrl(suitability) {
+    const base = "http://maps.google.com/mapfiles/ms/icons/";
+    if (suitability === "適合") return base + "green-dot.png";
+    if (suitability === "不適合") return base + "red-dot.png";
+    if (suitability === "条件付き") return base + "yellow-dot.png";
+    return base + "blue-dot.png";
+}
+
+/* 📍 初期表示：GPS 取得 → 失敗したら東京駅 */
+function initMap() {
+    navigator.geolocation.getCurrentPosition(
+        (pos) => {
+            const center = {
+                lat: pos.coords.latitude,
+                lng: pos.coords.longitude
+            };
+            createMap(center);
+        },
+        () => {
+            createMap({ lat: 34.3911, lng: 132.4576 });
+        }
+    );
+}
+
+function createMap(center) {
+    map = new google.maps.Map(document.getElementById("map"), {
+        center,
+        zoom: 13
+    });
+
+    placeCenterMarker(center);
+
+    /* スマホ向け resize */
+    setTimeout(() => {
+        google.maps.event.trigger(map, "resize");
+        map.setCenter(center);
+    }, 500);
+
+    document.getElementById("search-button").onclick = searchWarehouse;
+    map.addListener("click", handleMapClick);
+}
+
+function placeCenterMarker(position) {
+    new google.maps.Marker({
+        position,
+        map,
+        title: "検索中心地",
+        icon: "http://maps.google.com/mapfiles/ms/icons/blue-dot.png"
+    });
+}
+
+/* 📍クリックで逆ジオコーディング */
+async function handleMapClick(event) {
+    const latlng = event.latLng;
+    const url = `https://maps.googleapis.com/maps/api/geocode/json?latlng=${latlng.lat()},${latlng.lng()}&key=${API_KEY}&language=ja`;
+
+    document.getElementById("address-input").value = "住所を検索中...";
+
+    const res = await fetch(url);
+    const data = await res.json();
+
+    if (data.results?.length > 0) {
+        document.getElementById("address-input").value =
+            data.results[0].formatted_address;
+    }
+}
+
+async function searchWarehouse() {
+    const address = document.getElementById('address-input').value.trim();
+    if (!address || address.includes("検索中") || address.includes("失敗")) {
+        alert('有効な住所を入力または選択してください。');
+        return;
+    }
     
-    <div id="map-container">
-        <div id="map"></div>
-        <div id="sidebar">
-            <h3>候補地一覧</h3>
-            <div id="candidates-list">結果を検索するとここに表示されます。</div>
+    document.getElementById('search-button').textContent = '検索中...';
+    document.getElementById('candidates-list').innerHTML = 'データ取得中...';
+
+    let data;
+
+	try {
+		const response = await fetch(LOGIC_APP_URL, {
+			method: 'POST',
+			headers: {
+				'Content-Type': 'application/json'
+			},
+			body: JSON.stringify({ address: address })
+		});
+
+		if (!response.ok) {
+			throw new Error(`HTTPエラー! ステータス: ${response.status}`);
+		}
+
+		const jsonText = await response.text();  // ← text() で受け取る
+
+		let cleanJsonText = jsonText.trim();
+		if (cleanJsonText.startsWith('"') && cleanJsonText.endsWith('"')) {
+			cleanJsonText = cleanJsonText.slice(1, -1);
+		}
+
+		// 不要なエスケープ削除
+		cleanJsonText = cleanJsonText.replace(/\\"/g, '"');
+
+		// JSONに変換
+		data = JSON.parse(cleanJsonText);
+
+		if (Array.isArray(data)) {
+			placeMarkers(data);
+		} else {
+			console.error("Unexpected response:", data);
+			document.getElementById('candidates-list').innerHTML =
+				`<p style="color:red;">データ形式が配列ではありません。</p>`;
+			placeMarkers([]);
+		}
+
+	} catch (error) {
+		console.error("Fetch/Parse error:", error);
+		document.getElementById('candidates-list').innerHTML =
+			`<p style="color:red;">データ取得に失敗しました。</p>`;
+		placeMarkers([]);
+	} finally {
+		document.getElementById('search-button').textContent = '候補地を検索';
+	}
+
+}
+
+function placeMarkers(locations) {
+    markers.forEach((m) => m.setMap(null));
+    markers = [];
+
+    const listElement = document.getElementById("candidates-list");
+    listElement.innerHTML = "";
+
+    if (!locations.length) {
+        listElement.textContent = "候補地が見つかりませんでした。";
+        return;
+    }
+
+    map.panTo({ lat: parseFloat(locations[0].lat), lng: parseFloat(locations[0].lng) });
+    map.setZoom(15);
+
+    locations.forEach((loc, index) => {
+        const pos = { lat: parseFloat(loc.lat), lng: parseFloat(loc.lng) };
+
+        const marker = new google.maps.Marker({
+            position: pos,
+            map,
+            title: loc.name,
+            icon: getIconUrl(loc.suitability)
+        });
+
+        markers.push(marker);
+
+        const infoHtml = `
+        <div>
+            <h3>${loc.name}</h3>
+            <p><strong>住所:</strong> ${loc.address}</p>
+            <p><strong>適性:</strong> ${loc.suitability}</p>
+            <p>${loc.reason}</p>
+
+            <hr>
+            <strong>周辺防災情報:</strong><br>
+            <a href="https://www.jma.go.jp/bosai/risk/#zoom:14/lat:${pos.lat}/lon:${pos.lng}" target="_blank">キキクル</a><br>
+            <a href="https://disaportal.gsi.go.jp/hazardmap/maps/index.html?ll=${pos.lat},${pos.lng}&z=15" target="_blank">ハザードマップ</a><br>
+            <a href="https://www.google.com/maps/search/避難所/@${pos.lat},${pos.lng},15z" target="_blank">避難所検索</a><br>
+
+            <!-- ★修正済み AED リンク -->
+            <a href="https://aedm.jp/" target="_blank">近隣のAED</a><br>
+
+            <!-- ★緯度経度入り 公衆電話リンク -->
+            <a href="https://www.locationsmart.org/?tag=_collabo_phonebooth_ntt&lat=${pos.lat}&lon=${pos.lng}&z=18" target="_blank">
+                公衆電話（最寄り）
+            </a>
         </div>
-    </div>
+        `;
 
-    <script>
-        let map;
-        let currentInfoWindow = null;
-        let markers = []; 
-        const API_KEY = 'AIzaSyCFsUzLKS7z-n6zAYK7gXf-mm6iVXGrT1A';
-        const TOKYO_CENTER = { lat: 35.6895, lng: 139.6917 }; // 東京駅周辺
+        const iw = new google.maps.InfoWindow({ content: infoHtml });
 
-        // 🚨 Logic Appsの動的コンテンツをJavaScript文字列として埋め込む 🚨
-        const LOGIC_APP_URL = "https://prod-47.japaneast.logic.azure.com:443/workflows/690c844c958e440b959b6723c69c5ef8/triggers/When_an_HTTP_request_is_received/paths/invoke?api-version=2016-10-01&sp=%2Ftriggers%2FWhen_an_HTTP_request_is_received%2Frun&sv=1.0&sig=Gy1WOfIlVTGYqj1DsclsX0Uai1yZyugwuMdL425NOxU";
+        marker.addListener("click", () => {
+            if (currentInfoWindow) currentInfoWindow.close();
+            iw.open(map, marker);
+            currentInfoWindow = iw;
+        });
 
-        // マーカーアイコンの色を適性に合わせて変える関数
-        function getIconUrl(suitability) {
-            // Google MapsのチャートURLでアイコンの色を指定
-            const baseURL = 'http://maps.google.com/mapfiles/ms/icons/';
-            switch (suitability) {
-                case '適合':
-                    return baseURL + 'green-dot.png';
-                case '不適合':
-                    return baseURL + 'red-dot.png';
-                case '条件付き':
-                    return baseURL + 'yellow-dot.png';
-                default:
-                    return baseURL + 'blue-dot.png';
-            }
-        }
+        const item = document.createElement("div");
+        item.className = "candidate-item";
+        item.innerHTML = `<strong>${index + 1}. ${loc.name}</strong><br>${loc.address}`;
+        item.onclick = () => {
+            map.panTo(pos);
+            map.setZoom(16);
+            if (currentInfoWindow) currentInfoWindow.close();
+            iw.open(map, marker);
+            currentInfoWindow = iw;
+        };
+        listElement.appendChild(item);
+    });
+}
+</script>
 
-        function initMap() {
-            map = new google.maps.Map(document.getElementById("map"), {
-                center: TOKYO_CENTER,
-                zoom: 12
-            });
-
-            document.getElementById('search-button').addEventListener('click', searchWarehouse);
-            
-            map.addListener('click', handleMapClick);
-
-            placeCenterMarker(TOKYO_CENTER);
-        }
-        
-        function handleMapClick(event) {
-            const latlng = event.latLng;
-            geocodeLatLng(latlng);
-        }
-
-        async function geocodeLatLng(latlng) {
-            document.getElementById('address-input').value = "住所を検索中...";
-            
-            const geocodeUrl = `https://maps.googleapis.com/maps/api/geocode/json?latlng=${latlng.lat()},${latlng.lng()}&key=${API_KEY}&language=ja`; 
-
-            try {
-                const response = await fetch(geocodeUrl);
-                const data = await response.json();
-
-                if (data.results && data.results.length > 0) {
-                    const address = data.results[0].formatted_address;
-                    document.getElementById('address-input').value = address;
-                } else {
-                    document.getElementById('address-input').value = "住所を特定できませんでした。";
-                }
-            } catch (error) {
-                console.error("逆ジオコーディングエラー:", error);
-                document.getElementById('address-input').value = "住所検索に失敗しました。";
-            }
-        }
-        
-        function placeCenterMarker(position) {
-             new google.maps.Marker({
-                position: position,
-                map: map,
-                title: "検索中心地",
-                icon: 'http://maps.google.com/mapfiles/ms/icons/blue-dot.png'
-            });
-        }
-
-        async function searchWarehouse() {
-            const address = document.getElementById('address-input').value.trim();
-            if (!address || address.includes("検索中") || address.includes("失敗")) {
-                alert('有効な住所を入力または選択してください。');
-                return;
-            }
-            
-            document.getElementById('search-button').textContent = '検索中...';
-            document.getElementById('candidates-list').innerHTML = 'データ取得中...';
-            
-            let data; // 💡修正: data変数をtryブロックの外で定義
-
-            try {
-                const response = await fetch(LOGIC_APP_URL, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify({ address: address }) 
-                });
-
-                if (!response.ok) {
-                    throw new Error(`HTTPエラー! ステータス: ${response.status}`);
-                }
-
-                const jsonText = await response.text();
-
-                // 💡修正: Logic Appsの応答で付加される可能性のある余分な引用符を削除
-                let cleanJsonText = jsonText.trim();
-                if (cleanJsonText.startsWith('"') && cleanJsonText.endsWith('"')) {
-                    cleanJsonText = cleanJsonText.substring(1, cleanJsonText.length - 1);
-                }
-
-                data = JSON.parse(cleanJsonText);
-                
-                if (Array.isArray(data)) {
-                    placeMarkers(data);
-                } else {
-                    console.error("❌ 予期しない応答形式:", data);
-                    document.getElementById('candidates-list').innerHTML = `<p style="color: red;">データ形式に問題があります。JSON配列であることを確認してください。</p>`;
-                    placeMarkers([]); // マーカーをクリア
-                }
-
-            } catch (error) {
-                console.error("❌ データ取得/パースエラー:", error);
-                document.getElementById('candidates-list').innerHTML = `<p style="color: red;">データの取得中にエラーが発生しました。コンソールを確認してください。</p>`;
-                placeMarkers([]); // マーカーをクリア
-            } finally {
-                document.getElementById('search-button').textContent = '候補地を検索';
-            }
-        }
-
-        function placeMarkers(locations) {
-            markers.forEach(marker => marker.setMap(null));
-            markers = [];
-
-            if (locations.length === 0) {
-                if (document.getElementById('candidates-list').innerHTML === 'データ取得中...') {
-                     document.getElementById('candidates-list').innerHTML = '候補地が見つかりませんでした。';
-                }
-                return;
-            }
-
-            const listElement = document.getElementById('candidates-list');
-            listElement.innerHTML = ''; 
-            
-            // 最初の候補地の座標に地図を移動 (安全のためにLatLngオブジェクトを生成)
-            const firstLat = parseFloat(locations[0].lat);
-            const firstLng = parseFloat(locations[0].lng);
-
-            if (!isNaN(firstLat) && !isNaN(firstLng)) {
-                const firstPosition = { lat: firstLat, lng: firstLng };
-                map.panTo(firstPosition);
-                map.setZoom(14);
-            }
-            
-            locations.forEach((location, index) => {
-                const lat = parseFloat(location.lat);
-                const lng = parseFloat(location.lng);
-                
-                if (isNaN(lat) || isNaN(lng)) {
-                    console.warn(`無効な座標をスキップ: ${location.name}`);
-                    return;
-                }
-
-                const position = { lat: lat, lng: lng };
-
-                const marker = new google.maps.Marker({
-                    position,
-                    map,
-                    title: location.name,
-                    icon: getIconUrl(location.suitability)
-                });
-                
-                markers.push(marker);
-
-                const suitabilityClass = location.suitability === '適合' ? 'suitable' : location.suitability === '不適合' ? 'unsuitable' : 'conditional';
-                
-                // 情報ウィンドウのHTMLを生成
-                const infoWindowContent = `
-                    <div class="info-window">
-                        <h3>${location.name}</h3>
-                        <p><strong>住所:</strong> ${location.address || '推定住所情報なし'}</p>
-                        <p><strong>適性評価:</strong> <span class="${suitabilityClass}">${location.suitability}</span></p>
-                        <p><strong>理由:</strong> ${location.reason}</p>
-                        <div class="disaster-links-popup">
-                            <hr>
-                            <strong>周辺防災情報:</strong>
-                            <a href="https://www.jma.go.jp/bosai/risk/#zoom:14/lat:${lat}/lon:${lng}" target="_blank">キキクル (危険度マップ)</a>
-                            <a href="https://disaportal.gsi.go.jp/hazardmap/maps/index.html?ll=${lat},${lng}&z=15" target="_blank">ハザードマップ (国土地理院)</a>
-                            <a href="https://www.google.com/maps/search/%E9%81%BF%E9%9B%A3%E6%89%80/@${lat},${lng},14z" target="_blank">周辺避難所を検索</a>
-                        </div>
-                    </div>`;
-
-                const infoWindow = new google.maps.InfoWindow({ content: infoWindowContent });
-
-                marker.addListener("click", () => {
-                    if (currentInfoWindow) {
-                        currentInfoWindow.close();
-                    }
-                    infoWindow.open(map, marker);
-                    currentInfoWindow = infoWindow;
-                });
-                
-                // サイドバーのリストを作成
-                const listItem = document.createElement('div');
-                listItem.className = 'candidate-item';
-                listItem.innerHTML = `
-                    <strong>${index + 1}. ${location.name}</strong> 
-                    <span class="${suitabilityClass}">(${location.suitability})</span><br>
-                    <small>${location.address || '住所情報なし'}</small>
-                `;
-                listItem.onclick = () => {
-                    map.panTo(position); 
-                    if (currentInfoWindow) currentInfoWindow.close();
-                    infoWindow.open(map, marker);
-                    currentInfoWindow = infoWindow;
-                };
-                listElement.appendChild(listItem);
-            });
-        }
-    </script>
-    <script async defer src="https://maps.googleapis.com/maps/api/js?key=AIzaSyCFsUzLKS7z-n6zAYK7gXf-mm6iVXGrT1A&callback=initMap"></script>
+<script async defer src="https://maps.googleapis.com/maps/api/js?key=AIzaSyCFsUzLKS7z-n6zAYK7gXf-mm6iVXGrT1A&callback=initMap"></script>
 </body>
-
 </html>
-
-
