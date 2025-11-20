@@ -13,6 +13,7 @@
         height: 100vh;
         overflow: hidden;
     }
+
     .controls {
         padding: 10px;
         background: #f4f4f4;
@@ -20,12 +21,14 @@
         gap: 10px;
         align-items: center;
     }
+
     #address-input {
         padding: 8px;
         border: 1px solid #ccc;
         flex-grow: 3;
         max-width: 600px;
     }
+
     #search-button {
         padding: 8px 15px;
         background-color: #0078d4;
@@ -35,38 +38,47 @@
         border-radius: 4px;
     }
 
-    /* 📱 スマホ対応：高さがゼロにならないように */
-	#map-container {
-	    display: flex;
-	    flex-direction: column;
-	    height: auto;
-	    min-height: 60vh;
-	}
-	
-	#map {
-	    width: 100%;
-	    height: 50vh;   /* ← スマホでも必ず表示される */
-	}
-	
-	#sidebar {
-	    width: 100%;
-	    height: auto;
-	    max-height: 40vh;
-	    overflow-y: auto;
-	}
+    /* --- PC 用レイアウト（デフォルト）--- */
+    #map-container {
+        display: flex;
+        flex-direction: row; /* ← PC は横並び */
+        height: calc(100vh - 140px);
+        min-height: 400px;
+        width: 100%;
+        overflow: hidden;
+    }
 
+    #map {
+        flex: 7;
+        height: 100%;
+    }
+
+    #sidebar {
+        flex: 3;
+        height: 100%;
+        overflow-y: auto;
+        padding: 15px;
+        border-left: 1px solid #ccc;
+        background-color: #fff;
+    }
+
+    /* --- スマホ用（768px以下）--- */
     @media (max-width: 768px) {
         #map-container {
-            flex-direction: column;
+            flex-direction: column;  /* ← 縦並び */
             height: calc(100vh - 140px);
         }
+
         #map {
             width: 100%;
-            height: 60%;
+            height: 60vh;  /* ← 地図が0にならないように絶対値指定 */
         }
+
         #sidebar {
             width: 100%;
-            height: 40%;
+            height: 40vh;
+            border-left: none;
+            border-top: 1px solid #ccc;
         }
     }
 
@@ -79,9 +91,11 @@
         padding: 8px 0;
         cursor: pointer;
     }
+
     .candidate-item:hover {
         background-color: #f9f9f9;
     }
+
     .disaster-links-popup a {
         display: block;
         margin-top: 5px;
@@ -89,6 +103,7 @@
         text-decoration: underline;
     }
 </style>
+
 
 </head>
 <body>
@@ -275,16 +290,17 @@ function placeMarkers(locations) {
             <p><strong>住所:</strong> ${loc.address}</p>
             <p><strong>適性:</strong> ${loc.suitability}</p>
             <p>${loc.reason}</p>
+            <p>${loc.stockpiles}</p>
 
             <hr>
             <strong>周辺防災情報:</strong><br>
             <a href="https://www.jma.go.jp/bosai/risk/#zoom:14/lat:${pos.lat}/lon:${pos.lng}" target="_blank">キキクル</a><br>
+            <a href="https://disaportal.gsi.go.jp/hazardmap/maps/index.html?ll=${pos.lat},${pos.lng}&z=15&base=pale&ls=Disaster_lore_all&disp=1&vs=c1j0l0u0t0h0z0" target="_blank">過去の災害伝承碑</a><br>
             <a href="https://disaportal.gsi.go.jp/hazardmap/maps/index.html?ll=${pos.lat},${pos.lng}&z=15" target="_blank">ハザードマップ</a><br>
-            <a href="https://www.google.com/maps/search/避難所/@${pos.lat},${pos.lng},15z" target="_blank">避難所検索</a><br>
-
+            <a href="https://disaportal.gsi.go.jp/hazardmap/maps/index.html?ll=${pos.lat},${pos.lng}&z=15&base=pale&ls=disaster1%7Cdisaster7%7Cdisaster5%7Cdisaster2%7Cdisaster4%7Cdisaster6%7Cdisaster8%7Cdisaster3&disp=00010000&vs=c1j0l0u0t0h0z0" target="_blank">指定緊急避難所</a><br>
+            <a href="https://www.google.com/maps/search/避難所/@${pos.lat},${pos.lng},15z" target="_blank">Googlemap避難所検索</a><br>
             <!-- ★修正済み AED リンク -->
             <a href="https://aedm.jp/" target="_blank">近隣のAED</a><br>
-
             <!-- ★緯度経度入り 公衆電話リンク -->
             <a href="https://www.locationsmart.org/?tag=_collabo_phonebooth_ntt&lat=${pos.lat}&lon=${pos.lng}&z=18" target="_blank">
                 公衆電話（最寄り）
@@ -318,4 +334,3 @@ function placeMarkers(locations) {
 <script async defer src="https://maps.googleapis.com/maps/api/js?key=AIzaSyCFsUzLKS7z-n6zAYK7gXf-mm6iVXGrT1A&callback=initMap"></script>
 </body>
 </html>
-
