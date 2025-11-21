@@ -296,7 +296,7 @@ function placeMarkers(locations) {
             <strong>周辺防災情報:</strong><br>
             <a href="https://www.jma.go.jp/bosai/risk/#zoom:14/lat:${pos.lat}/lon:${pos.lng}" target="_blank">キキクル</a><br>
             <a href="https://disaportal.gsi.go.jp/hazardmap/maps/index.html?ll=${pos.lat},${pos.lng}&z=15&base=pale&ls=Disaster_lore_all&disp=1&vs=c1j0l0u0t0h0z0" target="_blank">過去の災害伝承碑</a><br>
-            <a href="https://disaportal.gsi.go.jp/hazardmap/maps/index.html?ll=${pos.lat},${pos.lng}&z=15" target="_blank">ハザードマップ</a><br>
+			<a href="https://disaportal.gsi.go.jp/hazardmap/maps/index.html?ll=${pos.lat},${pos.lng}&z=15&base=pale&ls=tameike_raster%2C0.8%7Cnaisui_raster%2C0.8%7Cflood_l2_kaokutoukai_kagan%2C0.8%7Cflood_l2_kaokutoukai_hanran%2C0.8%7Cflood_l2_keizoku%2C0.8%7Cflood_list%2C0.8%7Cflood_l1%2C0.8%7Cflood_list_l2%2C0.75%7Cdosha_kiken_nadare%2C0.8%7Cdosha_keikai_jisuberi%2C0.8%7Cdosha_keikai_dosekiryu%2C0.8%7Cdosha_keikai_kyukeisha%2C0.8%7Ctakashio_sinsuisin_raster%2C0.8%7Cekijouka_zenkoku%2C0.8%7Ctsunamishinsui_raster%2C0.8%7Cdisaster1%7Cdisaster2%7Cdisaster3%7Cdisaster5&disp=1100000101111010000&vs=c1j0l0u0t0h0z0 target="_blank">ハザードマップ</a><br>
             <a href="https://disaportal.gsi.go.jp/hazardmap/maps/index.html?ll=${pos.lat},${pos.lng}&z=15&base=pale&ls=disaster1%7Cdisaster7%7Cdisaster5%7Cdisaster2%7Cdisaster4%7Cdisaster6%7Cdisaster8%7Cdisaster3&disp=00010000&vs=c1j0l0u0t0h0z0" target="_blank">指定緊急避難所</a><br>
             <a href="https://www.google.com/maps/search/避難所/@${pos.lat},${pos.lng},15z" target="_blank">Googlemap避難所検索</a><br>
             <!-- ★修正済み AED リンク -->
@@ -357,4 +357,5 @@ function placeMarkers(locations) {
 <script async defer src="https://maps.googleapis.com/maps/api/js?key=AIzaSyCFsUzLKS7z-n6zAYK7gXf-mm6iVXGrT1A&callback=initMap"></script>
 </body>
 </html>
+
 
