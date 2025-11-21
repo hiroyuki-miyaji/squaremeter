@@ -142,6 +142,17 @@ function getIconUrl(suitability) {
 
 /* 📍 初期表示：GPS 取得 → 失敗したら東京駅 */
 function initMap() {
+	// 🔍 Enterキーで地図を中心に
+	document.getElementById("address-input").addEventListener("keydown", (e) => {
+		if (e.key === "Enter") {
+			centerMapFromTextbox();
+		}
+	});
+
+	// 🔍 フォーカスが外れた時も中心に
+	document.getElementById("address-input").addEventListener("blur", () => {
+		centerMapFromTextbox();
+	});
     navigator.geolocation.getCurrentPosition(
         (pos) => {
             const center = {
@@ -352,10 +363,32 @@ function placeMarkers(locations) {
 		listElement.appendChild(item);
     });
 }
+	/* 📌 テキストボックスの住所を地図中央に移動 */
+	async function centerMapFromTextbox() {
+		const address = document.getElementById("address-input").value.trim();
+		if (!address) return;
+
+		const url = `https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(address)}&key=${API_KEY}&language=ja`;
+
+		try {
+			const res = await fetch(url);
+			const data = await res.json();
+
+			if (data.results?.length > 0) {
+				const loc = data.results[0].geometry.location;
+				map.panTo({ lat: loc.lat, lng: loc.lng });
+				map.setZoom(15);
+			}
+		} catch (e) {
+			console.error("centerMapFromTextbox error:", e);
+		}
+	}
+
 </script>
 
 <script async defer src="https://maps.googleapis.com/maps/api/js?key=AIzaSyCFsUzLKS7z-n6zAYK7gXf-mm6iVXGrT1A&callback=initMap"></script>
 </body>
 </html>
+
 
 
