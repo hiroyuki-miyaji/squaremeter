@@ -212,6 +212,14 @@ async function handleMapClick(event) {
 
 async function searchWarehouse() {
     const address = document.getElementById('address-input').value.trim();
+	//都道府県市区町村切り出し
+    const parsed = parseJapaneseAddress(address);
+    const payload = {
+        address: address,
+        prefecture: parsed.pref,
+        city: parsed.city
+    };	
+	
     if (!address || address.includes("検索中") || address.includes("失敗")) {
         alert('有効な住所を入力または選択してください。');
         return;
@@ -228,7 +236,7 @@ async function searchWarehouse() {
 			headers: {
 				'Content-Type': 'application/json'
 			},
-			body: JSON.stringify({ address: address })
+			body: JSON.stringify(payload)
 		});
 
 		if (!response.ok) {
@@ -383,6 +391,39 @@ function placeMarkers(locations) {
 			console.error("centerMapFromTextbox error:", e);
 		}
 	}
+	
+	function parseJapaneseAddress(input) {
+		if (!input) return { pref: "", city: "" };
+
+		let address = input.trim();
+
+		// ① 不要ワード削除（国名・カンマ・全角空白）
+		address = address
+			.replace(/^日本[、,\s]*/i, "")
+			.replace(/JP[、,\s]*/i, "")
+			.replace(/[、,]/g, " ")  // カンマ → 半角スペース
+			.replace(/\s+/g, " ");  // 連続スペースを 1 に
+
+		// ② 郵便番号削除（〒699-2841 / 6992841 両方対応）
+		address = address.replace(/〒?\d{3}-?\d{4}/g, "").trim();
+
+		// ③ 都道府県抽出
+		const prefRegex = /(北海道|東京都|京都府|大阪府|.{2,3}県)/;
+		const prefMatch = address.match(prefRegex);
+		let pref = prefMatch ? prefMatch[0] : "";
+
+		// ④ 市区町村抽出
+		let city = "";
+		if (pref) {
+			const remain = address.slice(address.indexOf(pref) + pref.length);
+			const cityRegex = /(.*?[市区町村])/;
+			const cityMatch = remain.match(cityRegex);
+			if (cityMatch) city = cityMatch[1];
+		}
+
+		return { pref, city };
+	}
+	
 
 </script>
 
