@@ -133,7 +133,7 @@ const LOGIC_APP_URL =
  "https://prod-47.japaneast.logic.azure.com:443/workflows/690c844c958e440b959b6723c69c5ef8/triggers/When_an_HTTP_request_is_received/paths/invoke?api-version=2016-10-01&sp=%2Ftriggers%2FWhen_an_HTTP_request_is_received%2Frun&sv=1.0&sig=Gy1WOfIlVTGYqj1DsclsX0Uai1yZyugwuMdL425NOxU";
 
 function getIconUrl(suitability) {
-    const base = "http://maps.google.com/mapfiles/ms/icons/";
+    const base = "https://maps.google.com/mapfiles/ms/icons/";
     if (suitability === "適合") return base + "green-dot.png";
     if (suitability === "不適合") return base + "red-dot.png";
     if (suitability === "条件付き") return base + "yellow-dot.png";
@@ -190,7 +190,7 @@ function placeCenterMarker(position) {
         position,
         map,
         title: "検索中心地",
-        icon: "http://maps.google.com/mapfiles/ms/icons/blue-dot.png"
+        icon: "https://maps.google.com/mapfiles/ms/icons/blue-dot.png"
     });
 }
 
