@@ -274,6 +274,64 @@
             .mobile-bar { padding: 7px 10px; gap: 6px; }
             .mobile-bar select { font-size: 11px; }
         }
+
+        /* ═══════ REPORT MODAL ═══════ */
+        .report-modal-overlay {
+            display: none;
+            position: fixed;
+            inset: 0;
+            background: rgba(0,0,0,0.55);
+            z-index: 999;
+            overflow-y: auto;
+            -webkit-overflow-scrolling: touch;
+        }
+        .report-modal-overlay.open { display: block; }
+        .report-modal {
+            background: #fff;
+            max-width: 860px;
+            margin: 16px auto;
+            border-radius: 12px;
+            overflow: hidden;
+            box-shadow: 0 12px 40px rgba(0,0,0,0.25);
+            position: relative;
+        }
+        .report-modal-bar {
+            position: sticky;
+            top: 0;
+            background: #1a1f2e;
+            color: #fff;
+            padding: 11px 16px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            z-index: 10;
+            gap: 10px;
+        }
+        .report-modal-bar-title {
+            font-size: 13px;
+            font-weight: 700;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        .report-modal-bar-actions { display: flex; gap: 8px; flex-shrink: 0; }
+        .rmbtn {
+            border: none; cursor: pointer; border-radius: 6px;
+            font-size: 12px; font-weight: 700;
+            font-family: 'Noto Sans JP', sans-serif;
+            padding: 6px 13px;
+            transition: opacity 0.15s;
+        }
+        .rmbtn:hover { opacity: 0.85; }
+        .rmbtn-print { background: #e8410a; color: #fff; }
+        .rmbtn-dl    { background: #1a7fe8; color: #fff; }
+        .rmbtn-close { background: rgba(255,255,255,0.15); color: #fff; }
+        .report-modal-body { padding: 28px 32px 40px; }
+        @media (max-width: 600px) {
+            .report-modal { margin: 0; border-radius: 0; min-height: 100vh; }
+            .report-modal-body { padding: 18px 14px 40px; }
+            .rmbtn span { display: none; }
+        }
     </style>
 </head>
 <body>
@@ -399,6 +457,23 @@
     </div>
 
 </div><!-- /app-layout -->
+
+<!-- ═══ REPORT MODAL ═══ -->
+<div class="report-modal-overlay" id="reportModalOverlay">
+    <div class="report-modal">
+        <div class="report-modal-bar">
+            <span class="report-modal-bar-title" id="reportModalTitle">レポート</span>
+            <div class="report-modal-bar-actions">
+                <button class="rmbtn rmbtn-print" onclick="window.print()">🖨 <span>印刷</span></button>
+                <button class="rmbtn rmbtn-dl"    id="reportDlBtn">💾 <span>ダウンロード</span></button>
+                <button class="rmbtn rmbtn-close" onclick="closeReportModal()">✕</button>
+            </div>
+        </div>
+        <div class="report-modal-body" id="reportModalBody"></div>
+    </div>
+</div>
+
+
 
 <div id="sidebarOverlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.4);z-index:25;" onclick="toggleSidebar()"></div>
 
@@ -889,32 +964,56 @@
 </body>
 </html>`;
 
-        // Messenger等のWebViewでも動作するよう複数手段でフォールバック
-        try {
-            // ① Blob URL + window.open（通常ブラウザ向け）
-            const blob   = new Blob([html], { type: "text/html;charset=utf-8" });
-            const blobUrl = URL.createObjectURL(blob);
-            const newWin  = window.open(blobUrl, "_blank");
-            if (!newWin || newWin.closed || typeof newWin.closed === "undefined") {
-                throw new Error("popup blocked");
-            }
-            setTimeout(() => URL.revokeObjectURL(blobUrl), 10000);
-        } catch(e) {
-            // ② ダウンロード方式にフォールバック（Messenger / LINE WebView等）
-            const areaId   = document.getElementById("areaSelect").value
-                          || document.getElementById("areaSelectMobile").value;
-            const areaName = (areaDataMap[areaId] || {}).name || "report";
-            const today    = new Date().toISOString().slice(0, 10);
-            const fileName = "防災倉庫レポート_" + areaName + "_" + today + ".html";
-            const encoded  = "data:text/html;charset=utf-8," + encodeURIComponent(html);
-            const a        = document.createElement("a");
-            a.href         = encoded;
-            a.download     = fileName;
-            a.style.display = "none";
-            document.body.appendChild(a);
-            a.click();
-            setTimeout(() => { try { document.body.removeChild(a); } catch(_){} }, 2000);
+        // ── モーダル内にレポートを描画（WebView・Messenger対応）──
+        const areaIdForReport  = document.getElementById("areaSelect").value
+                              || document.getElementById("areaSelectMobile").value;
+        const areaNameForTitle = (areaDataMap[areaIdForReport] || {}).name || "レポート";
+        const todayStr         = new Date().toISOString().slice(0, 10);
+        const dlFileName       = "防災倉庫レポート_" + areaNameForTitle + "_" + todayStr + ".html";
+
+        // モーダルタイトル
+        document.getElementById("reportModalTitle").textContent =
+            areaNameForTitle + " 防災倉庫設置提案レポート";
+
+        // レポートHTMLからbody内のコンテンツだけを抽出してモーダルに注入
+        const parser   = new DOMParser();
+        const doc      = parser.parseFromString(html, "text/html");
+        // スタイルをそのままコピー
+        const styleTag = doc.querySelector("style");
+        const reportWrap = doc.querySelector(".report-wrap");
+        const modalBody  = document.getElementById("reportModalBody");
+        modalBody.innerHTML = "";
+        if (styleTag) {
+            const s = document.createElement("style");
+            s.textContent = styleTag.textContent;
+            modalBody.appendChild(s);
         }
+        if (reportWrap) {
+            modalBody.appendChild(reportWrap.cloneNode(true));
+        } else {
+            modalBody.innerHTML = doc.body.innerHTML;
+        }
+
+        // ダウンロードボタン設定（Data URL方式）
+        const dlBtn = document.getElementById("reportDlBtn");
+        dlBtn.onclick = function() {
+            const encoded = "data:text/html;charset=utf-8," + encodeURIComponent(html);
+            const a = document.createElement("a");
+            a.href = encoded; a.download = dlFileName; a.style.display = "none";
+            document.body.appendChild(a); a.click();
+            setTimeout(() => { try { document.body.removeChild(a); } catch(_){} }, 2000);
+        };
+
+        // モーダルを開く
+        const overlay = document.getElementById("reportModalOverlay");
+        overlay.classList.add("open");
+        overlay.scrollTop = 0;
+        document.body.style.overflow = "hidden";
+    }
+
+    function closeReportModal() {
+        document.getElementById("reportModalOverlay").classList.remove("open");
+        document.body.style.overflow = "";
     }
 
     // ============================================================
