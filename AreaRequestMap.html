@@ -889,10 +889,32 @@
 </body>
 </html>`;
 
-        // 新しいタブで開く
-        const blob = new Blob([html], { type: "text/html;charset=utf-8" });
-        const url  = URL.createObjectURL(blob);
-        window.open(url, "_blank");
+        // Messenger等のWebViewでも動作するよう複数手段でフォールバック
+        try {
+            // ① Blob URL + window.open（通常ブラウザ向け）
+            const blob   = new Blob([html], { type: "text/html;charset=utf-8" });
+            const blobUrl = URL.createObjectURL(blob);
+            const newWin  = window.open(blobUrl, "_blank");
+            if (!newWin || newWin.closed || typeof newWin.closed === "undefined") {
+                throw new Error("popup blocked");
+            }
+            setTimeout(() => URL.revokeObjectURL(blobUrl), 10000);
+        } catch(e) {
+            // ② ダウンロード方式にフォールバック（Messenger / LINE WebView等）
+            const areaId   = document.getElementById("areaSelect").value
+                          || document.getElementById("areaSelectMobile").value;
+            const areaName = (areaDataMap[areaId] || {}).name || "report";
+            const today    = new Date().toISOString().slice(0, 10);
+            const fileName = "防災倉庫レポート_" + areaName + "_" + today + ".html";
+            const encoded  = "data:text/html;charset=utf-8," + encodeURIComponent(html);
+            const a        = document.createElement("a");
+            a.href         = encoded;
+            a.download     = fileName;
+            a.style.display = "none";
+            document.body.appendChild(a);
+            a.click();
+            setTimeout(() => { try { document.body.removeChild(a); } catch(_){} }, 2000);
+        }
     }
 
     // ============================================================
