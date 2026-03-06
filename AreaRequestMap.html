@@ -1,0 +1,857 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>エリア別防災倉庫設置候補マップ</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@300;400;500;700;900&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg: #f5f6f8;
+            --surface: #ffffff;
+            --surface2: #f0f2f5;
+            --border: #e2e6ea;
+            --border2: #d0d7de;
+            --accent: #e8410a;
+            --accent-light: #fff1ec;
+            --day: #1a7fe8;
+            --day-light: #e8f2fd;
+            --night: #7c3aed;
+            --night-light: #f3eefe;
+            --safe: #16a34a;
+            --safe-light: #dcfce7;
+            --danger: #dc2626;
+            --danger-light: #fee2e2;
+            --text: #1a1f2e;
+            --text-secondary: #4b5563;
+            --text-muted: #9ca3af;
+            --shadow-sm: 0 1px 3px rgba(0,0,0,0.08);
+            --shadow: 0 4px 16px rgba(0,0,0,0.10);
+            --shadow-lg: 0 8px 32px rgba(0,0,0,0.14);
+        }
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        html, body { font-family: 'Noto Sans JP', sans-serif; background: var(--bg); color: var(--text); height: 100%; overflow: hidden; }
+
+        /* ═══════ HEADER ═══════ */
+        header {
+            background: var(--surface);
+            border-bottom: 1px solid var(--border);
+            height: 56px; padding: 0 16px;
+            display: flex; align-items: center; gap: 12px;
+            flex-shrink: 0;
+            box-shadow: var(--shadow-sm);
+            position: relative; z-index: 20;
+        }
+        .logo { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
+        .logo-icon {
+            width: 34px; height: 34px;
+            background: linear-gradient(135deg, #e8410a, #ff6b35);
+            border-radius: 8px;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 17px;
+            box-shadow: 0 2px 8px rgba(232,65,10,0.3);
+        }
+        .logo-text { font-size: 14px; font-weight: 700; color: var(--text); white-space: nowrap; }
+        .logo-sub  { font-size: 9px; color: var(--text-muted); letter-spacing: 0.8px; text-transform: uppercase; }
+        .header-divider { width: 1px; height: 28px; background: var(--border); flex-shrink: 0; }
+        .controls { display: flex; align-items: center; gap: 8px; }
+        .ctrl-label { font-size: 11px; font-weight: 600; color: var(--text-muted); white-space: nowrap; }
+        select {
+            background: var(--surface); border: 1px solid var(--border2); color: var(--text);
+            padding: 6px 10px; border-radius: 7px; font-size: 12px;
+            font-family: 'Noto Sans JP', sans-serif; font-weight: 500;
+            cursor: pointer; outline: none;
+            transition: border-color 0.2s, box-shadow 0.2s; max-width: 200px;
+        }
+        select:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(232,65,10,0.12); }
+        .filter-tabs { display: flex; background: var(--surface2); border: 1px solid var(--border); border-radius: 7px; overflow: hidden; flex-shrink: 0; }
+        .filter-btn { padding: 5px 13px; font-size: 11px; font-weight: 600; font-family: 'Noto Sans JP', sans-serif; cursor: pointer; border: none; background: transparent; color: var(--text-muted); transition: all 0.18s; white-space: nowrap; }
+        .filter-btn:hover { color: var(--text); background: var(--border); }
+        .filter-btn.active-all   { background: var(--accent); color: #fff; }
+        .filter-btn.active-day   { background: var(--day);    color: #fff; }
+        .filter-btn.active-night { background: var(--night);  color: #fff; }
+        .load-btn {
+            background: var(--accent); border: none; color: #fff;
+            padding: 7px 16px; border-radius: 7px; font-size: 12px; font-weight: 700;
+            font-family: 'Noto Sans JP', sans-serif; cursor: pointer; transition: all 0.18s;
+            white-space: nowrap; box-shadow: 0 2px 6px rgba(232,65,10,0.25); flex-shrink: 0;
+        }
+        .load-btn:hover:not(:disabled) { background: #c73508; transform: translateY(-1px); }
+        .load-btn:disabled { background: var(--border2); color: var(--text-muted); box-shadow: none; cursor: not-allowed; }
+        .report-btn {
+            background: var(--surface); border: 1.5px solid var(--border2); color: var(--text-secondary);
+            padding: 7px 14px; border-radius: 7px; font-size: 12px; font-weight: 600;
+            font-family: 'Noto Sans JP', sans-serif; cursor: pointer; transition: all 0.18s;
+            white-space: nowrap; flex-shrink: 0; display: flex; align-items: center; gap: 5px;
+        }
+        .report-btn:hover:not(:disabled) { border-color: var(--day); color: var(--day); background: var(--day-light); }
+        .report-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+        .header-stats { display: flex; gap: 6px; margin-left: auto; flex-shrink: 0; }
+        .stat-chip { font-size: 10px; font-weight: 700; padding: 3px 9px; border-radius: 20px; border: 1.5px solid; white-space: nowrap; }
+        .chip-all   { border-color: var(--accent); color: var(--accent); background: var(--accent-light); }
+        .chip-day   { border-color: var(--day);    color: var(--day);   background: var(--day-light); }
+        .chip-night { border-color: var(--night);  color: var(--night); background: var(--night-light); }
+
+        /* ═══════ AREA INFO BAR ═══════ */
+        .area-info-bar {
+            background: var(--surface);
+            border-bottom: 1px solid var(--border);
+            padding: 0 20px;
+            max-height: 0;
+            overflow: hidden;
+            transition: max-height 0.35s ease, padding 0.25s ease;
+            flex-shrink: 0;
+            z-index: 15;
+        }
+        .area-info-bar.visible {
+            max-height: 160px;
+            padding: 12px 20px;
+        }
+        .area-info-inner {
+            display: flex;
+            gap: 24px;
+            align-items: flex-start;
+        }
+        .area-info-left {
+            flex-shrink: 0;
+        }
+        .area-info-name {
+            font-size: 16px;
+            font-weight: 900;
+            color: var(--text);
+            line-height: 1.3;
+        }
+        .area-info-addr {
+            font-size: 11px;
+            color: var(--text-muted);
+            margin-top: 3px;
+        }
+        .area-info-divider {
+            width: 1px;
+            background: var(--border);
+            align-self: stretch;
+            flex-shrink: 0;
+        }
+        .area-info-desc {
+            flex: 1;
+            font-size: 11px;
+            color: var(--text-secondary);
+            line-height: 1.75;
+            overflow-y: auto;
+            max-height: 120px;
+            white-space: pre-wrap;
+        }
+        .area-info-desc::-webkit-scrollbar { width: 3px; }
+        .area-info-desc::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 2px; }
+
+        /* ═══════ LAYOUT ═══════ */
+        .app-body { display: flex; flex: 1; overflow: hidden; }
+        .app-layout { display: flex; flex-direction: column; height: calc(100vh - 56px); }
+
+        /* ═══════ SIDEBAR ═══════ */
+        .sidebar {
+            width: 300px; background: var(--surface); border-right: 1px solid var(--border);
+            display: flex; flex-direction: column; flex-shrink: 0; overflow: hidden;
+        }
+        .sidebar-head { padding: 11px 14px; border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; background: var(--surface2); }
+        .sidebar-title { font-size: 10px; font-weight: 700; color: var(--text-muted); letter-spacing: 1.2px; text-transform: uppercase; }
+        .sidebar-count { font-size: 11px; font-weight: 700; color: var(--accent); background: var(--accent-light); border-radius: 20px; padding: 2px 8px; }
+        .location-list { overflow-y: auto; flex: 1; }
+        .location-list::-webkit-scrollbar { width: 4px; }
+        .location-list::-webkit-scrollbar-track { background: transparent; }
+        .location-list::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 2px; }
+        .location-item { padding: 11px 14px; border-bottom: 1px solid var(--border); cursor: pointer; transition: background 0.15s; position: relative; }
+        .location-item:hover { background: var(--surface2); }
+        .location-item.selected { background: var(--accent-light); border-left: 3px solid var(--accent); }
+        .item-top { display: flex; align-items: center; gap: 5px; margin-bottom: 4px; }
+        .time-badge { font-size: 9px; font-weight: 700; padding: 2px 6px; border-radius: 4px; }
+        .time-badge.day   { background: var(--day-light);   color: var(--day); }
+        .time-badge.night { background: var(--night-light); color: var(--night); }
+        .type-badge { font-size: 9px; font-weight: 500; padding: 2px 6px; border-radius: 4px; background: var(--surface2); color: var(--text-secondary); border: 1px solid var(--border); }
+        .item-dist { position: absolute; right: 12px; top: 12px; font-size: 9px; font-weight: 600; color: var(--text-muted); }
+        .item-name { font-size: 12px; font-weight: 700; color: var(--text); line-height: 1.4; margin-bottom: 2px; }
+        .item-address { font-size: 10px; color: var(--text-muted); }
+
+        /* ═══════ MAP ═══════ */
+        .map-wrapper { flex: 1; position: relative; overflow: hidden; }
+        #map { width: 100%; height: 100%; background: #e8edf2; }
+        .status-bar { position: absolute; top: 12px; left: 12px; background: rgba(255,255,255,0.95); border: 1px solid var(--border); border-radius: 20px; padding: 5px 12px; font-size: 11px; font-weight: 500; color: var(--text-secondary); z-index: 10; backdrop-filter: blur(8px); box-shadow: var(--shadow-sm); display: flex; align-items: center; gap: 6px; }
+        .status-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--safe); flex-shrink: 0; animation: pulse 2s infinite; }
+        @keyframes pulse { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:.5;transform:scale(.85)} }
+
+        /* カスタムマーカー */
+        .custom-marker { width: 32px; height: 32px; border-radius: 50% 50% 50% 0; transform: rotate(-45deg); display: flex; align-items: center; justify-content: center; box-shadow: 0 3px 10px rgba(0,0,0,0.25); border: 2px solid #fff; cursor: pointer; transition: box-shadow 0.2s, width 0.15s, height 0.15s; }
+        .custom-marker.day   { background: var(--day); }
+        .custom-marker.night { background: var(--night); }
+        .custom-marker .marker-inner { transform: rotate(45deg); font-size: 13px; line-height: 1; }
+        .custom-marker.selected { width: 40px; height: 40px; box-shadow: 0 0 0 4px rgba(232,65,10,0.35), 0 5px 16px rgba(0,0,0,0.3); }
+
+        /* ═══════ INFO PANEL ═══════ */
+        .info-panel { position: absolute; bottom: 20px; right: 16px; width: 340px; background: var(--surface); border: 1px solid var(--border); border-radius: 14px; overflow: hidden; box-shadow: var(--shadow-lg); display: none; z-index: 100; animation: panelIn 0.22s ease; }
+        @keyframes panelIn { from{opacity:0;transform:translateY(12px) scale(.98)} to{opacity:1;transform:translateY(0) scale(1)} }
+        .info-panel.visible { display: block; }
+        .panel-header { padding: 14px 14px 12px; border-bottom: 1px solid var(--border); display: flex; align-items: flex-start; gap: 10px; background: var(--surface2); }
+        .panel-icon-wrap { width: 38px; height: 38px; border-radius: 9px; display: flex; align-items: center; justify-content: center; font-size: 19px; flex-shrink: 0; }
+        .panel-icon-wrap.day   { background: var(--day-light); }
+        .panel-icon-wrap.night { background: var(--night-light); }
+        .panel-title { font-size: 13px; font-weight: 700; color: var(--text); line-height: 1.4; }
+        .panel-sub { font-size: 10px; font-weight: 600; margin-top: 3px; display: inline-block; padding: 1px 7px; border-radius: 20px; }
+        .panel-sub.day   { background: var(--day-light);   color: var(--day); }
+        .panel-sub.night { background: var(--night-light); color: var(--night); }
+        .panel-close { margin-left: auto; background: var(--border); border: none; color: var(--text-secondary); font-size: 14px; cursor: pointer; width: 24px; height: 24px; border-radius: 50%; display: flex; align-items: center; justify-content: center; flex-shrink: 0; transition: background 0.15s; }
+        .panel-close:hover { background: var(--border2); color: var(--text); }
+        .panel-body { padding: 13px 14px; }
+        .panel-row { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 10px; }
+        .pfield-label { font-size: 9px; font-weight: 700; color: var(--text-muted); letter-spacing: 1px; text-transform: uppercase; margin-bottom: 3px; }
+        .pfield-value { font-size: 11px; font-weight: 500; color: var(--text); line-height: 1.5; }
+        .stock-section { background: var(--surface2); border-radius: 8px; padding: 10px; margin-bottom: 10px; }
+        .stock-tags { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 6px; }
+        .stock-tag { font-size: 10px; font-weight: 500; padding: 3px 8px; border-radius: 5px; }
+        .stock-tag.required    { background: var(--accent-light); color: var(--accent); border: 1px solid rgba(232,65,10,.25); }
+        .stock-tag.recommended { background: var(--surface);      color: var(--text-secondary); border: 1px solid var(--border2); }
+        .reason-section { border-left: 3px solid var(--accent); padding: 7px 10px; background: var(--accent-light); border-radius: 0 7px 7px 0; margin-bottom: 10px; }
+        .reason-text { font-size: 10px; color: var(--text-secondary); line-height: 1.7; }
+        .panel-links { display: grid; grid-template-columns: 1fr 1fr; gap: 7px; }
+        .panel-link { display: flex; align-items: center; justify-content: center; gap: 4px; padding: 8px; border-radius: 7px; font-size: 10px; font-weight: 700; text-decoration: none; border: 1.5px solid; transition: all .18s; }
+        .link-hazard  { border-color: var(--danger); color: var(--danger); background: var(--danger-light); }
+        .link-hazard:hover  { background: #fca5a5; }
+        .link-shelter { border-color: var(--safe);   color: var(--safe);   background: var(--safe-light); }
+        .link-shelter:hover { background: #86efac; }
+
+        /* EMPTY */
+        .state-empty { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 180px; color: var(--text-muted); font-size: 12px; gap: 8px; text-align: center; padding: 0 20px; }
+        .state-empty .icon { font-size: 30px; opacity: .5; }
+
+        /* MOBILE */
+        .menu-toggle { display: none; background: none; border: none; font-size: 20px; cursor: pointer; color: var(--text); padding: 4px; }
+        @media (max-width: 900px) {
+            .header-stats { display: none; }
+            .logo-sub { display: none; }
+        }
+        @media (max-width: 768px) {
+            .menu-toggle { display: flex; }
+            .header-divider, .ctrl-label { display: none; }
+            select { max-width: 120px; font-size: 11px; }
+            .filter-btn { padding: 5px 8px; font-size: 10px; }
+            .load-btn { padding: 6px 10px; font-size: 11px; }
+            .report-btn span { display: none; }
+            .sidebar { position: absolute; left: 0; top: 0; bottom: 0; z-index: 30; width: 280px; transform: translateX(-100%); transition: transform 0.25s ease; box-shadow: var(--shadow-lg); }
+            .sidebar.open { transform: translateX(0); }
+            .info-panel { bottom: 12px; right: 8px; left: 8px; width: auto; }
+            .area-info-bar.visible { max-height: 200px; }
+        }
+        @media (max-width: 480px) {
+            header { gap: 7px; padding: 0 10px; }
+            select { max-width: 95px; }
+        }
+    </style>
+</head>
+<body>
+
+<div class="app-layout">
+
+    <!-- ═══ HEADER ═══ -->
+    <header>
+        <button class="menu-toggle" onclick="toggleSidebar()">☰</button>
+        <div class="logo">
+            <div class="logo-icon">🏚</div>
+            <div>
+                <div class="logo-text">防災倉庫マップ</div>
+                <div class="logo-sub">Disaster Warehouse Map</div>
+            </div>
+        </div>
+        <div class="header-divider"></div>
+        <div class="controls">
+            <span class="ctrl-label">エリア</span>
+            <select id="areaSelect" onchange="onAreaChange()"><option value="">-- 選択 --</option></select>
+            <div class="filter-tabs">
+                <button class="filter-btn active-all" data-filter="all"  onclick="setFilter('all')">全て</button>
+                <button class="filter-btn"            data-filter="昼間" onclick="setFilter('昼間')">昼間</button>
+                <button class="filter-btn"            data-filter="夜間" onclick="setFilter('夜間')">夜間</button>
+            </div>
+            <button class="load-btn" id="loadBtn" onclick="loadData()">🔄 読込</button>
+            <button class="report-btn" id="reportBtn" disabled onclick="generateReport()">
+                📄 <span>レポート生成</span>
+            </button>
+        </div>
+        <div class="header-stats">
+            <span class="stat-chip chip-all"   id="chipTotal">0 件</span>
+            <span class="stat-chip chip-day"   id="chipDay">昼 0</span>
+            <span class="stat-chip chip-night" id="chipNight">夜 0</span>
+        </div>
+    </header>
+
+    <!-- ═══ AREA INFO BAR ═══ -->
+    <div class="area-info-bar" id="areaInfoBar">
+        <div class="area-info-inner">
+            <div class="area-info-left">
+                <div class="area-info-name" id="areaInfoName">-</div>
+                <div class="area-info-addr" id="areaInfoAddr">-</div>
+            </div>
+            <div class="area-info-divider"></div>
+            <div class="area-info-desc" id="areaInfoDesc">-</div>
+        </div>
+    </div>
+
+    <!-- ═══ BODY ═══ -->
+    <div class="app-body">
+        <!-- Sidebar -->
+        <aside class="sidebar" id="sidebar">
+            <div class="sidebar-head">
+                <span class="sidebar-title">施設一覧</span>
+                <span class="sidebar-count" id="sidebarCount">-</span>
+            </div>
+            <div class="location-list" id="locationList">
+                <div class="state-empty">
+                    <div class="icon">🗺️</div>
+                    <div>エリアを選択して<br>「読込」ボタンを押してください</div>
+                </div>
+            </div>
+        </aside>
+
+        <!-- Map -->
+        <div class="map-wrapper">
+            <div id="map"></div>
+            <div class="status-bar" id="statusBar"><span class="status-dot"></span>準備完了</div>
+
+            <!-- Info Panel -->
+            <div class="info-panel" id="infoPanel">
+                <div class="panel-header">
+                    <div class="panel-icon-wrap" id="panelIconWrap">🏪</div>
+                    <div style="flex:1;min-width:0;">
+                        <div class="panel-title" id="panelTitle">-</div>
+                        <span class="panel-sub" id="panelSub">-</span>
+                    </div>
+                    <button class="panel-close" onclick="closePanel()">✕</button>
+                </div>
+                <div class="panel-body">
+                    <div class="panel-row">
+                        <div>
+                            <div class="pfield-label">住所</div>
+                            <div class="pfield-value" id="panelAddress">-</div>
+                        </div>
+                        <div>
+                            <div class="pfield-label">中心地距離</div>
+                            <div class="pfield-value" id="panelDist">-</div>
+                        </div>
+                    </div>
+                    <div class="stock-section">
+                        <div class="pfield-label">📦 推奨備蓄品</div>
+                        <div class="stock-tags" id="panelStocks"></div>
+                    </div>
+                    <div class="reason-section">
+                        <div class="pfield-label" style="margin-bottom:4px;">選定理由</div>
+                        <div class="reason-text" id="panelReason">-</div>
+                    </div>
+                    <div class="panel-links">
+                        <a class="panel-link link-hazard"  id="panelHazard"  href="#" target="_blank">⚠️ ハザードマップ</a>
+                        <a class="panel-link link-shelter" id="panelShelter" href="#" target="_blank">🏥 避難所マップ</a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+</div><!-- /app-layout -->
+
+<div id="sidebarOverlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.4);z-index:25;" onclick="toggleSidebar()"></div>
+
+<script>
+    // ============================================================
+    // CONFIG
+    // ============================================================
+    const AREA_SHEET_URL     = "https://sheets.googleapis.com/v4/spreadsheets/1r78U_anFFSTwlQ5km5MNOC_KKAXXwkRTVM5Uy8VTAyw/values/%E3%82%A8%E3%83%AA%E3%82%A2%E4%B8%80%E8%A6%A7?key=AIzaSyACm4lK4rdatQbwGIwGA1s7Vv74VEXzoZc";
+    const FACILITY_SHEET_URL = "https://sheets.googleapis.com/v4/spreadsheets/1r78U_anFFSTwlQ5km5MNOC_KKAXXwkRTVM5Uy8VTAyw/values/%E6%8B%A0%E7%82%B9%E4%B8%80%E8%A6%A7?key=AIzaSyACm4lK4rdatQbwGIwGA1s7Vv74VEXzoZc";
+    let useDemo = false;
+
+    // ============================================================
+    // Sheets API パーサー
+    // ============================================================
+    function parseSheetsResponse(json) {
+        const rows = json.values;
+        if (!rows || rows.length < 2) return [];
+        const headers = rows[0];
+        return rows.slice(1).map(row => {
+            const obj = {};
+            headers.forEach((h, i) => { obj[h] = row[i] !== undefined ? row[i] : ""; });
+            return obj;
+        });
+    }
+    function normalizeArea(row) {
+        return {
+            id:      row["エリア番号"] || "",
+            name:    row["エリア名称"] || "",
+            address: row["住所"]       || "",
+            desc:    row["地域特性"]   || ""
+        };
+    }
+    function normalizeFacility(row) {
+        return {
+            area:        row["エリア番号"] || "",
+            kubun:       row["区分"]       || "",
+            type:        row["施設種類"]   || "",
+            name:        row["施設名称"]   || "",
+            city:        row["市区町村"]   || "",
+            address:     row["住所"]       || "",
+            lat:         row["緯度"]       || "",
+            lng:         row["経度"]       || "",
+            reason:      row["選定理由"]   || "",
+            stock:       row["配備した方が良い備蓄品（必須/推奨）"] || "",
+            stockReason: row["備蓄品選定理由"] || "",
+            dist:        row["中心地距離"] || "",
+            walk:        row["徒歩時間"]   || ""
+        };
+    }
+
+    // ============================================================
+    // デモデータ
+    // ============================================================
+    const DEMO_AREAS = [{
+        id: "H-1",
+        name: "広島国際学院高等学校",
+        address: "〒736-0003 広島県安芸郡海田町曽田１−５",
+        desc: "人口・人口分布\n　海田町は約2.9万人の人口を抱え、安芸郡で最も人口密度が高い自治体です。中心地はJR海田市駅から続く平坦地に住宅・学校・商店が密集しており、昼間は学生や駅利用者が、夜間は高層マンションや古くからの戸建て住民が活動の主体となります。\n\n地形・災害特性\n　瀬野川・海田川の堆積による沖積平野で、背後には急傾斜地が迫っています。最大の脅威は河川氾濫（洪水）と、山際の土砂災害です。\n\n過去の被災\n　平成30年7月豪雨では、瀬野川の氾濫や各所での土砂崩れにより甚大な被害を受けました。"
+    }];
+    const DEMO_FACILITIES = [
+        { area:"H-1", kubun:"昼間", type:"学校",         name:"広島国際学院高等学校",              city:"安芸郡海田町", address:"曽田1-5",      lat:34.3734, lng:132.5492, reason:"【中心地】1,000名以上の生徒が在籍。発災直後の負傷者対応と避難誘導の核。",             stock:"必須：折りたたみ担架、救急医療セット、大型メガホン ／ 推奨：液体ミルク、生理用品",          stockReason:"多数の負傷者発生を想定したトリアージ・搬送資材と、避難所としての要配慮者支援が不可欠。", dist:"0m",    walk:"0分" },
+        { area:"H-1", kubun:"昼間", type:"スーパー",      name:"万惣 海田店",                      city:"安芸郡海田町", address:"曙町1-31",     lat:34.3688, lng:132.5415, reason:"県道沿いで日中の活動密度が高い商業地。駐車場が広く救助車両の活動拠点になる。",          stock:"必須：多機能ラジオ、掲示用ホワイトボード ／ 推奨：除菌シート、マウスウォッシュ",            stockReason:"混乱する利用者への情報集約と掲示。密集地での感染症予防を重視。", dist:"900m",  walk:"12分" },
+        { area:"H-1", kubun:"昼間", type:"コンビニ",      name:"セブン-イレブン 広島海田幸町店",    city:"安芸郡海田町", address:"幸町1-10",     lat:34.3696, lng:132.5436, reason:"学校から駅へ向かう通学路沿い。24時間営業で夜間に残った学生の駆け込み寺。",           stock:"必須：モバイルバッテリー、スマホ充電器 ／ 推奨：多言語避難誘導シート、非常食",             stockReason:"学生のスマホ電源確保を最優先。外国人学生への情報保障。", dist:"700m",  walk:"10分" },
+        { area:"H-1", kubun:"昼間", type:"コンビニ",      name:"セブン-イレブン 広島海田大正町店",  city:"安芸郡海田町", address:"大正町8-9",    lat:34.3682, lng:132.5336, reason:"海田町役場に隣接する民間地。行政と連携した物資配布や情報発信の結節点。",            stock:"必須：LED投光器、誘導用蓄光ベスト ／ 推奨：乾電池、モバイルWi-Fi",                        stockReason:"役場周辺に集まる住民の夜間誘導。停電時の行政バックアップ機能を補完。", dist:"1.4km", walk:"19分" },
+        { area:"H-1", kubun:"昼間", type:"スーパー",      name:"ハローズ 海田市駅前店",             city:"安芸郡海田町", address:"窪町1-23",     lat:34.3711, lng:132.5318, reason:"鉄道停止時に帰宅困難者が滞留する最終集結地。24時間稼働の衛生拠点。",               stock:"必須：携帯用トイレ、アルミブランケット ／ 推奨：簡易パーテーション、防臭袋",               stockReason:"大人数の滞留による排泄問題の即時解決と低体温症防止。", dist:"1.6km", walk:"22分" },
+        { area:"H-1", kubun:"夜間", type:"コンビニ",      name:"ローソン 海田畝店",                 city:"安芸郡海田町", address:"畝1-25",       lat:34.3778, lng:132.5496, reason:"北側住宅密集地の坂の起点。山側（避難先）への誘導・救出のフロントライン。",          stock:"必須：救助用バール、油圧ジャッキ、LEDヘッドライト ／ 推奨：防塵マスク、防刃手袋",          stockReason:"木造家屋倒壊を想定。住民救出ツールが必須。", dist:"550m",  walk:"8分"  },
+        { area:"H-1", kubun:"夜間", type:"コンビニ",      name:"セブン-イレブン 広島海田中店",      city:"安芸郡海田町", address:"中店8-18",     lat:34.3728, lng:132.5334, reason:"マンションと戸建てが混在。夜間の人口密度が特に高く、要救護者が多いエリア。",       stock:"必須：布担架、非常用防臭袋 ／ 推奨：簡易ケトル、カセットコンロ",                            stockReason:"エレベーター停止時の階段搬送に布担架が不可欠。", dist:"1.5km", walk:"20分" },
+        { area:"H-1", kubun:"夜間", type:"コンビニ",      name:"セブン-イレブン 広島海田曙町店",    city:"安芸郡海田町", address:"曙町10-29",    lat:34.3651, lng:132.5392, reason:"南側平地住宅街。2次避難場所まで距離があるため、一時的な生活維持が必要。",         stock:"必須：カセットコンロ、ガスボンベ、高カロリー食 ／ 推奨：ドライシャンプー、ウェットタオル",  stockReason:"支援が届くまでの間、自力で熱源を確保し低体温症を防ぐ。", dist:"1.5km", walk:"21分" },
+        { area:"H-1", kubun:"夜間", type:"コンビニ",      name:"セブン-イレブン 広島海田国信店",    city:"安芸郡海田町", address:"国信2-5-39",   lat:34.3814, lng:132.5577, reason:"圏域東端。公共施設から遠く孤立しやすいため、高い自立性が求められる。",           stock:"必須：大容量水袋、ポータブル電源 ／ 推奨：簡易シャワー、ラップ、使い捨て食器",             stockReason:"孤立時の水確保と通信維持。水の節約資材を優先。", dist:"1.4km", walk:"19分" },
+        { area:"H-1", kubun:"夜間", type:"ドラッグストア", name:"ウォンツ 海田店",                  city:"安芸郡海田町", address:"南大正町5-22", lat:34.3667, lng:132.5342, reason:"周辺マンション住民の生活拠点。夜間の負傷者対応をサポートする医薬品隣接地。",     stock:"必須：応急処置キット、洗浄綿 ／ 推奨：大人用おむつ、清拭シート",                           stockReason:"夜間の負傷や持病悪化への即時対応。断水時の身体清拭による衛生維持。", dist:"1.6km", walk:"21分" },
+    ];
+
+    // ============================================================
+    // State
+    // ============================================================
+    let map, AdvancedMarkerElement;
+    let markerObjects      = [];
+    let allFacilities      = [];
+    let filteredFacilities = [];
+    let currentFilter      = "all";
+    let areaDataMap        = {};   // id → {name, address, desc}
+
+    const typeIcons = { "学校":"🏫","スーパー":"🛒","コンビニ":"🏪","ドラッグストア":"💊","病院":"🏥","公民館":"🏛","公園":"🌳","default":"📍" };
+
+    // ============================================================
+    // Google Maps 初期化
+    // ============================================================
+    async function initMap() {
+        const { Map } = await google.maps.importLibrary("maps");
+        const { AdvancedMarkerElement: AME } = await google.maps.importLibrary("marker");
+        AdvancedMarkerElement = AME;
+        map = new Map(document.getElementById("map"), {
+            center: { lat: 34.372, lng: 132.544 }, zoom: 13, mapId: "DEMO_MAP_ID",
+            zoomControl: true, mapTypeControl: false, streetViewControl: false, fullscreenControl: false, clickableIcons: false
+        });
+        await loadAreas();
+    }
+
+    // ============================================================
+    // エリア読み込み
+    // ============================================================
+    async function loadAreas() {
+        const select = document.getElementById("areaSelect");
+        try {
+            let areas;
+            if (useDemo) {
+                areas = DEMO_AREAS;
+            } else {
+                const res = await fetch(AREA_SHEET_URL);
+                if (!res.ok) throw new Error(`HTTP ${res.status}`);
+                areas = parseSheetsResponse(await res.json()).map(normalizeArea).filter(a => a.id);
+            }
+            areas.forEach(a => {
+                areaDataMap[a.id] = a;
+                const opt = document.createElement("option");
+                opt.value = a.id;
+                opt.textContent = `${a.id}  ${a.name}`;
+                select.appendChild(opt);
+            });
+        } catch(e) {
+            console.warn("エリア取得失敗。デモデータを使用:", e);
+            DEMO_AREAS.forEach(a => {
+                areaDataMap[a.id] = a;
+                const opt = document.createElement("option");
+                opt.value = a.id; opt.textContent = `${a.id}  ${a.name}`;
+                select.appendChild(opt);
+            });
+        }
+    }
+
+    // ============================================================
+    // エリア選択変更 → 情報バーを更新
+    // ============================================================
+    function onAreaChange() {
+        const areaId = document.getElementById("areaSelect").value;
+        const bar    = document.getElementById("areaInfoBar");
+        if (!areaId) {
+            bar.classList.remove("visible");
+            return;
+        }
+        const area = areaDataMap[areaId];
+        if (!area) { bar.classList.remove("visible"); return; }
+
+        document.getElementById("areaInfoName").textContent = `${area.id}  ${area.name}`;
+        document.getElementById("areaInfoAddr").textContent = area.address || "";
+        document.getElementById("areaInfoDesc").textContent = area.desc    || "（地域特性情報なし）";
+        bar.classList.add("visible");
+    }
+
+    // ============================================================
+    // 拠点データ読み込み
+    // ============================================================
+    async function loadData() {
+        const areaId = document.getElementById("areaSelect").value;
+        if (!areaId) { alert("エリアを選択してください"); return; }
+
+        const btn = document.getElementById("loadBtn");
+        btn.disabled = true; btn.textContent = "読込中...";
+        setStatus("データ取得中...");
+        clearMarkers(); closePanel();
+
+        try {
+            let facilities;
+            if (useDemo) {
+                facilities = DEMO_FACILITIES.filter(f => f.area === areaId);
+            } else {
+                const res = await fetch(FACILITY_SHEET_URL);
+                if (!res.ok) throw new Error(`HTTP ${res.status}`);
+                facilities = parseSheetsResponse(await res.json())
+                    .map(normalizeFacility)
+                    .filter(f => f.area === areaId && f.name);
+            }
+            allFacilities = facilities;
+            applyFilter();
+            setStatus(`${facilities.length} 件のデータを表示中`);
+            document.getElementById("reportBtn").disabled = facilities.length === 0;
+        } catch(e) {
+            console.error("拠点データ取得エラー:", e);
+            setStatus("❌ データ取得失敗");
+        } finally {
+            btn.disabled = false; btn.textContent = "🔄 読込";
+        }
+    }
+
+    // ============================================================
+    // フィルター
+    // ============================================================
+    function setFilter(f) {
+        currentFilter = f;
+        document.querySelectorAll(".filter-btn").forEach(b => {
+            b.className = "filter-btn";
+            if (b.dataset.filter === f) b.classList.add(`active-${f==="昼間"?"day":f==="夜間"?"night":"all"}`);
+        });
+        if (allFacilities.length) applyFilter();
+    }
+    function applyFilter() {
+        filteredFacilities = currentFilter === "all" ? allFacilities : allFacilities.filter(f => f.kubun === currentFilter);
+        updateChips(); renderList(); placeMarkers(); closePanel();
+    }
+    function updateChips() {
+        document.getElementById("chipTotal").textContent    = `${allFacilities.length} 件`;
+        document.getElementById("chipDay").textContent      = `昼 ${allFacilities.filter(f=>f.kubun==="昼間").length}`;
+        document.getElementById("chipNight").textContent    = `夜 ${allFacilities.filter(f=>f.kubun==="夜間").length}`;
+        document.getElementById("sidebarCount").textContent = `${filteredFacilities.length} 件`;
+    }
+
+    // ============================================================
+    // サイドバー
+    // ============================================================
+    function renderList() {
+        const list = document.getElementById("locationList");
+        list.innerHTML = "";
+        if (!filteredFacilities.length) {
+            list.innerHTML = `<div class="state-empty"><div class="icon">📭</div><div>該当する施設がありません</div></div>`;
+            return;
+        }
+        filteredFacilities.forEach((f, i) => {
+            const div = document.createElement("div");
+            div.className = "location-item"; div.id = `item-${i}`;
+            const icon = typeIcons[f.type] || typeIcons.default;
+            div.innerHTML = `
+                <div class="item-dist">${f.dist||""}</div>
+                <div class="item-top">
+                    <span class="time-badge ${f.kubun==="昼間"?"day":"night"}">${f.kubun}</span>
+                    <span class="type-badge">${icon} ${f.type}</span>
+                </div>
+                <div class="item-name">${f.name}</div>
+                <div class="item-address">${f.city} ${f.address}</div>
+            `;
+            div.onclick = () => selectFacility(i);
+            list.appendChild(div);
+        });
+    }
+
+    // ============================================================
+    // マーカー
+    // ============================================================
+    function clearMarkers() { markerObjects.forEach(({marker})=>{marker.map=null;}); markerObjects=[]; }
+    function placeMarkers() {
+        clearMarkers();
+        if (!map || !AdvancedMarkerElement) return;
+        const bounds = new google.maps.LatLngBounds();
+        filteredFacilities.forEach((f, i) => {
+            if (!f.lat || !f.lng) return;
+            const icon = typeIcons[f.type] || typeIcons.default;
+            const el = document.createElement("div");
+            el.className = `custom-marker ${f.kubun==="昼間"?"day":"night"}`;
+            el.innerHTML = `<span class="marker-inner">${icon}</span>`;
+            const marker = new AdvancedMarkerElement({ position:{lat:parseFloat(f.lat),lng:parseFloat(f.lng)}, map, title:f.name, content:el });
+            marker.addListener("click", ()=>selectFacility(i));
+            markerObjects.push({marker,element:el});
+            bounds.extend({lat:parseFloat(f.lat),lng:parseFloat(f.lng)});
+        });
+        if (markerObjects.length) { map.fitBounds(bounds); if (markerObjects.length===1) map.setZoom(15); }
+    }
+
+    // ============================================================
+    // 施設選択
+    // ============================================================
+    function selectFacility(index) {
+        const f = filteredFacilities[index];
+        if (!f) return;
+        document.querySelectorAll(".location-item").forEach(el=>el.classList.remove("selected"));
+        const item = document.getElementById(`item-${index}`);
+        if (item) { item.classList.add("selected"); item.scrollIntoView({behavior:"smooth",block:"nearest"}); }
+        markerObjects.forEach(({element},i)=>element.classList.toggle("selected",i===index));
+        if (f.lat&&f.lng) map.panTo({lat:parseFloat(f.lat),lng:parseFloat(f.lng)});
+        showPanel(f);
+        if (window.innerWidth<=768) closeSidebar();
+    }
+    function showPanel(f) {
+        const isDay = f.kubun==="昼間";
+        const icon  = typeIcons[f.type]||typeIcons.default;
+        const lat=parseFloat(f.lat), lng=parseFloat(f.lng);
+        const iw=document.getElementById("panelIconWrap"); iw.textContent=icon; iw.className=`panel-icon-wrap ${isDay?"day":"night"}`;
+        document.getElementById("panelTitle").textContent=f.name;
+        const sub=document.getElementById("panelSub"); sub.textContent=`${f.type} ・ ${f.kubun}拠点`; sub.className=`panel-sub ${isDay?"day":"night"}`;
+        document.getElementById("panelAddress").textContent=`${f.city||""}${f.address?" "+f.address:""}`;
+        document.getElementById("panelDist").textContent=f.dist?`${f.dist}（徒歩${f.walk||"-"}）`:"-";
+        document.getElementById("panelReason").textContent=f.reason||"-";
+        const box=document.getElementById("panelStocks"); box.innerHTML="";
+        const raw=f.stock||"";
+        const reqMatch=raw.match(/必須[：:]\s*([^／/]+)/);
+        const recMatch=raw.match(/推奨[：:]\s*([^／/]+)/);
+        const reqItems=reqMatch?reqMatch[1].split(/[、,，]/).map(s=>s.trim()).filter(Boolean):[];
+        const recItems=recMatch?recMatch[1].split(/[、,，]/).map(s=>s.trim()).filter(Boolean):[];
+        const fallback=(!reqItems.length&&!recItems.length)?raw.split(/[、,，／/]/).map(s=>s.trim()).filter(Boolean):[];
+        reqItems.forEach(s=>{const t=document.createElement("span");t.className="stock-tag required";t.textContent=`必須：${s}`;box.appendChild(t);});
+        recItems.forEach(s=>{const t=document.createElement("span");t.className="stock-tag recommended";t.textContent=`推奨：${s}`;box.appendChild(t);});
+        fallback.forEach(s=>{const t=document.createElement("span");t.className="stock-tag recommended";t.textContent=s;box.appendChild(t);});
+        document.getElementById("panelHazard").href=`https://disaportal.gsi.go.jp/hazardmap/maps/index.html?ll=${lat},${lng}&z=15&base=pale&ls=seamless%7Ctakashio_sinsuisin_raster%2C0.8%7Cflood_l1%2C0.8%7Cdosha_keikai_dosekiryu%2C0.8&disp=0101110000010111111000001&vs=c1j0l0u0t0h0z0`;
+        document.getElementById("panelShelter").href=`https://maps.gsi.go.jp/#16/${lat}/${lng}/&base=std&ls=std%7Cskhb01&disp=11&lcd=skhb01&vs=c1g1j0h0k0l0u0t0z0r0s0m0f0&d=m`;
+        document.getElementById("infoPanel").classList.add("visible");
+    }
+    function closePanel() {
+        document.getElementById("infoPanel").classList.remove("visible");
+        markerObjects.forEach(({element})=>element.classList.remove("selected"));
+    }
+
+    // ============================================================
+    // ★ レポート生成
+    // ============================================================
+    function generateReport() {
+        const areaId  = document.getElementById("areaSelect").value;
+        const area    = areaDataMap[areaId] || {};
+        const today   = new Date().toLocaleDateString("ja-JP", {year:"numeric",month:"long",day:"numeric"});
+
+        // 昼間・夜間で分けてテーブル行生成
+        function buildRows(kubun) {
+            const filtered = allFacilities.filter(f => f.kubun === kubun);
+            if (!filtered.length) return `<tr><td colspan="5" style="text-align:center;color:#9ca3af;padding:16px;">該当なし</td></tr>`;
+            return filtered.map(f => {
+                const stock = f.stock || "";
+                const reqM  = stock.match(/必須[：:]\s*([^／/]+)/);
+                const recM  = stock.match(/推奨[：:]\s*([^／/]+)/);
+                const reqStr = reqM ? reqM[1].trim() : "";
+                const recStr = recM ? recM[1].trim() : "";
+                const icon   = typeIcons[f.type] || "📍";
+                return `
+                <tr>
+                    <td><strong>${f.name}</strong><br><span style="font-size:11px;color:#6b7280;">${icon} ${f.type}　${f.city} ${f.address}</span></td>
+                    <td style="text-align:center;">${f.dist||"-"}<br><span style="font-size:11px;color:#6b7280;">徒歩${f.walk||"-"}</span></td>
+                    <td>${f.reason||"-"}</td>
+                    <td>
+                        ${reqStr ? `<div style="margin-bottom:4px;"><span style="font-size:10px;font-weight:700;color:#e8410a;">【必須】</span><br>${reqStr}</div>` : ""}
+                        ${recStr ? `<div><span style="font-size:10px;font-weight:700;color:#4b5563;">【推奨】</span><br>${recStr}</div>` : ""}
+                        ${!reqStr&&!recStr ? stock : ""}
+                    </td>
+                    <td style="font-size:11px;color:#4b5563;">${f.stockReason||"-"}</td>
+                </tr>`;
+            }).join("");
+        }
+
+        // 地域特性を段落に整形
+        function formatDesc(text) {
+            if (!text) return "<p>（情報なし）</p>";
+            return text.split(/\n\n+/).map(block => {
+                const lines = block.split(/\n/).map(l => l.trim()).filter(Boolean);
+                if (!lines.length) return "";
+                const heading = lines[0];
+                const body    = lines.slice(1).join(" ");
+                return `<div style="margin-bottom:18px;">
+                    <div style="font-size:14px;font-weight:700;color:#1a1f2e;border-bottom:1px solid #e2e6ea;padding-bottom:4px;margin-bottom:8px;">${heading}</div>
+                    <p style="font-size:13px;color:#4b5563;line-height:1.8;">${body}</p>
+                </div>`;
+            }).join("");
+        }
+
+        const html = `<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>${area.name||areaId} エリア防災倉庫設置提案レポート</title>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;700;900&display=swap" rel="stylesheet">
+<style>
+    *{box-sizing:border-box;margin:0;padding:0;}
+    body{font-family:'Noto Sans JP',sans-serif;color:#1a1f2e;background:#fff;padding:40px;}
+    @media print{body{padding:20px;}}
+    .report-wrap{max-width:900px;margin:0 auto;}
+    /* cover */
+    .cover{text-align:center;padding:40px 0 32px;border-bottom:3px solid #e8410a;margin-bottom:36px;}
+    .cover-eyebrow{font-size:12px;letter-spacing:2px;color:#e8410a;font-weight:700;text-transform:uppercase;margin-bottom:8px;}
+    .cover-title{font-size:26px;font-weight:900;color:#1a1f2e;line-height:1.4;margin-bottom:6px;}
+    .cover-sub{font-size:15px;font-weight:500;color:#4b5563;margin-bottom:16px;}
+    .cover-meta{font-size:12px;color:#9ca3af;}
+    /* section */
+    .section{margin-bottom:36px;}
+    .section-title{font-size:16px;font-weight:700;color:#1a1f2e;border-left:4px solid #e8410a;padding-left:10px;margin-bottom:16px;}
+    /* summary grid */
+    .summary-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:0;}
+    .summary-card{background:#f5f6f8;border-radius:8px;padding:14px 16px;text-align:center;}
+    .summary-card .num{font-size:28px;font-weight:900;color:#e8410a;}
+    .summary-card .label{font-size:11px;color:#6b7280;margin-top:2px;}
+    /* table */
+    table{width:100%;border-collapse:collapse;font-size:12px;margin-bottom:0;}
+    th{background:#1a1f2e;color:#fff;padding:9px 12px;text-align:left;font-weight:700;font-size:11px;}
+    td{padding:10px 12px;border-bottom:1px solid #e2e6ea;vertical-align:top;line-height:1.6;}
+    tr:nth-child(even) td{background:#f9fafb;}
+    .kubun-header td{background:#f0f2f5;font-weight:700;font-size:12px;color:#4b5563;padding:8px 12px;}
+    .day-label{display:inline-block;background:#e8f2fd;color:#1a7fe8;border-radius:4px;padding:2px 8px;font-size:11px;font-weight:700;}
+    .night-label{display:inline-block;background:#f3eefe;color:#7c3aed;border-radius:4px;padding:2px 8px;font-size:11px;font-weight:700;}
+    /* footer */
+    .report-footer{margin-top:40px;padding-top:16px;border-top:1px solid #e2e6ea;font-size:11px;color:#9ca3af;text-align:center;}
+    @media print{
+        .no-print{display:none!important;}
+        table{font-size:10px;}
+        th,td{padding:6px 8px;}
+        body{padding:10px;}
+    }
+    /* print button */
+    .print-bar{position:fixed;bottom:20px;right:20px;display:flex;gap:10px;z-index:999;}
+    .btn-print{background:#1a1f2e;color:#fff;border:none;padding:10px 20px;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer;font-family:'Noto Sans JP',sans-serif;box-shadow:0 4px 12px rgba(0,0,0,0.2);}
+    .btn-print:hover{background:#374151;}
+    .btn-close{background:#fff;color:#4b5563;border:1.5px solid #d0d7de;padding:10px 20px;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer;font-family:'Noto Sans JP',sans-serif;}
+    .btn-close:hover{background:#f5f6f8;}
+</style>
+</head>
+<body>
+<div class="report-wrap">
+
+    <!-- カバー -->
+    <div class="cover">
+        <div class="cover-eyebrow">防災倉庫設置提案レポート</div>
+        <div class="cover-title">${area.name||areaId}（${area.address ? area.address.replace(/〒\d{3}-\d{4}\s*/,"") : ""}）</div>
+        <div class="cover-sub">エリアへの防災倉庫設置提案（半径1km圏内）</div>
+        <div class="cover-meta">作成日：${today}　／　対象エリア：${areaId}</div>
+    </div>
+
+    <!-- サマリー -->
+    <div class="section">
+        <div class="section-title">拠点サマリー</div>
+        <div class="summary-grid">
+            <div class="summary-card">
+                <div class="num">${allFacilities.length}</div>
+                <div class="label">総拠点数</div>
+            </div>
+            <div class="summary-card">
+                <div class="num" style="color:#1a7fe8;">${allFacilities.filter(f=>f.kubun==="昼間").length}</div>
+                <div class="label">昼間拠点</div>
+            </div>
+            <div class="summary-card">
+                <div class="num" style="color:#7c3aed;">${allFacilities.filter(f=>f.kubun==="夜間").length}</div>
+                <div class="label">夜間拠点</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 地域特性 -->
+    <div class="section">
+        <div class="section-title">地域特性サマリー</div>
+        ${formatDesc(area.desc)}
+    </div>
+
+    <!-- 拠点一覧テーブル -->
+    <div class="section">
+        <div class="section-title">拠点一覧・備蓄品提案</div>
+        <table>
+            <thead>
+                <tr>
+                    <th style="width:22%;">施設名 / 種別・住所</th>
+                    <th style="width:8%;">中心地距離</th>
+                    <th style="width:25%;">選定理由</th>
+                    <th style="width:27%;">推奨備蓄品</th>
+                    <th style="width:18%;">備蓄品選定理由</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr class="kubun-header"><td colspan="5"><span class="day-label">昼間拠点</span></td></tr>
+                ${buildRows("昼間")}
+                <tr class="kubun-header"><td colspan="5"><span class="night-label">夜間拠点</span></td></tr>
+                ${buildRows("夜間")}
+            </tbody>
+        </table>
+    </div>
+
+    <div class="report-footer">
+        このレポートは防災倉庫マップアプリより自動生成されました。データはGoogleスプレッドシートより取得。
+    </div>
+</div>
+
+<div class="print-bar no-print">
+    <button class="btn-close" onclick="window.close()">✕ 閉じる</button>
+    <button class="btn-print" onclick="window.print()">🖨 印刷 / PDF保存</button>
+</div>
+</body>
+</html>`;
+
+        // 新しいタブで開く
+        const blob = new Blob([html], { type: "text/html;charset=utf-8" });
+        const url  = URL.createObjectURL(blob);
+        window.open(url, "_blank");
+    }
+
+    // ============================================================
+    // モバイル サイドバー
+    // ============================================================
+    function toggleSidebar() {
+        const sb = document.getElementById("sidebar");
+        const ov = document.getElementById("sidebarOverlay");
+        const open = sb.classList.toggle("open");
+        ov.style.display = open ? "block" : "none";
+    }
+    function closeSidebar() {
+        document.getElementById("sidebar").classList.remove("open");
+        document.getElementById("sidebarOverlay").style.display = "none";
+    }
+    function setStatus(msg) {
+        document.getElementById("statusBar").innerHTML = `<span class="status-dot"></span>${msg}`;
+    }
+    document.addEventListener("keydown", e => { if (e.key==="Escape") closePanel(); });
+</script>
+
+<!-- Google Maps API -->
+<script>
+(g=>{var h,a,k,p="The Google Maps JavaScript API",c="google",l="importLibrary",q="__ib__",m=document,b=window;b=b[c]||(b[c]={});var d=b.maps||(b.maps={}),r=new Set,e=new URLSearchParams,u=()=>h||(h=new Promise(async(f,n)=>{await (a=m.createElement("script"));e.set("libraries",[...r]+"");for(k in g)e.set(k.replace(/[A-Z]/g,t=>"_"+t[0].toLowerCase()),g[k]);e.set("language","ja");e.set("callback",c+".maps."+q);a.src=`https://maps.${c}apis.com/maps/api/js?`+e;d[q]=f;a.onerror=()=>h=n(Error(p+" could not load."));a.nonce=m.querySelector("script[nonce]")?.nonce||"";m.head.append(a)}));d[l]?console.warn(p+" only loads once. Ignoring:",g):d[l]=(f,...n)=>r.add(f)&&u().then(()=>d[l](f,...n))})
+({key:"AIzaSyACm4lK4rdatQbwGIwGA1s7Vv74VEXzoZc", v:"weekly"});
+initMap();
+</script>
+</body>
+</html>
