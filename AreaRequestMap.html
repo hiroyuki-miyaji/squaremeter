@@ -146,8 +146,8 @@
         .area-info-desc::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 2px; }
 
         /* ═══════ LAYOUT ═══════ */
-        .app-body { display: flex; flex: 1; overflow: hidden; }
-        .app-layout { display: flex; flex-direction: column; height: calc(100vh - 56px); }
+        .app-body { display: flex; flex: 1; overflow: hidden; min-height: 0; }
+        .app-layout { display: flex; flex-direction: column; height: 100vh; }
 
         /* ═══════ SIDEBAR ═══════ */
         .sidebar {
@@ -223,6 +223,24 @@
         .state-empty { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 180px; color: var(--text-muted); font-size: 12px; gap: 8px; text-align: center; padding: 0 20px; }
         .state-empty .icon { font-size: 30px; opacity: .5; }
 
+        /* MOBILE CONTROLS BAR (2段目) */
+        .mobile-bar {
+            display: none;
+            background: var(--surface);
+            border-bottom: 2px solid var(--border);
+            padding: 7px 12px;
+            gap: 8px;
+            align-items: center;
+            flex-shrink: 0;
+            z-index: 19;
+            box-shadow: 0 1px 4px rgba(0,0,0,0.06);
+        }
+        .mobile-bar select {
+            flex: 1;
+            max-width: none;
+            font-size: 12px;
+        }
+
         /* MOBILE */
         .menu-toggle { display: none; background: none; border: none; font-size: 20px; cursor: pointer; color: var(--text); padding: 4px; }
         @media (max-width: 900px) {
@@ -230,20 +248,31 @@
             .logo-sub { display: none; }
         }
         @media (max-width: 768px) {
+            /* ヘッダー1段目：ロゴ＋ハンバーガー＋アクションボタンのみ */
             .menu-toggle { display: flex; }
-            .header-divider, .ctrl-label { display: none; }
-            select { max-width: 120px; font-size: 11px; }
-            .filter-btn { padding: 5px 8px; font-size: 10px; }
-            .load-btn { padding: 6px 10px; font-size: 11px; }
-            .report-btn span { display: none; }
-            .sidebar { position: absolute; left: 0; top: 0; bottom: 0; z-index: 30; width: 280px; transform: translateX(-100%); transition: transform 0.25s ease; box-shadow: var(--shadow-lg); }
+            .header-divider { display: none; }
+            .ctrl-label { display: none; }
+            /* デスクトップのcontrolsは非表示にして2段目バーで代替 */
+            .controls { display: none; }
+            /* 2段目バーを表示 */
+            .mobile-bar { display: flex; }
+            /* ヘッダー右側にアクションボタンを移動表示 */
+            .header-actions { display: flex !important; gap: 6px; margin-left: auto; }
+            .sidebar {
+                position: absolute; left: 0; top: 0; bottom: 0; z-index: 30;
+                width: 280px;
+                transform: translateX(-100%);
+                transition: transform 0.25s ease;
+                box-shadow: var(--shadow-lg);
+            }
             .sidebar.open { transform: translateX(0); }
             .info-panel { bottom: 12px; right: 8px; left: 8px; width: auto; }
-            .area-info-bar.visible { max-height: 200px; }
+            .area-info-bar.visible { max-height: 220px; }
         }
         @media (max-width: 480px) {
-            header { gap: 7px; padding: 0 10px; }
-            select { max-width: 95px; }
+            header { gap: 8px; padding: 0 10px; }
+            .mobile-bar { padding: 7px 10px; gap: 6px; }
+            .mobile-bar select { font-size: 11px; }
         }
     </style>
 </head>
@@ -251,7 +280,7 @@
 
 <div class="app-layout">
 
-    <!-- ═══ HEADER ═══ -->
+    <!-- ═══ HEADER（1段目） ═══ -->
     <header>
         <button class="menu-toggle" onclick="toggleSidebar()">☰</button>
         <div class="logo">
@@ -262,6 +291,7 @@
             </div>
         </div>
         <div class="header-divider"></div>
+        <!-- デスクトップ用コントロール -->
         <div class="controls">
             <span class="ctrl-label">エリア</span>
             <select id="areaSelect" onchange="onAreaChange()"><option value="">-- 選択 --</option></select>
@@ -280,7 +310,22 @@
             <span class="stat-chip chip-day"   id="chipDay">昼 0</span>
             <span class="stat-chip chip-night" id="chipNight">夜 0</span>
         </div>
+        <!-- モバイル専用アクションボタン（ヘッダー右端） -->
+        <div class="header-actions" style="display:none;">
+            <button class="load-btn" id="loadBtnMobile" onclick="loadData()">🔄</button>
+            <button class="report-btn" id="reportBtnMobile" disabled onclick="generateReport()" style="padding:7px 10px;">📄</button>
+        </div>
     </header>
+
+    <!-- ═══ MOBILE 2段目：エリア選択＋フィルター ═══ -->
+    <div class="mobile-bar">
+        <select id="areaSelectMobile" onchange="onAreaChangeMobile()"><option value="">-- エリア選択 --</option></select>
+        <div class="filter-tabs">
+            <button class="filter-btn active-all" data-filter="all"  onclick="setFilter('all')">全て</button>
+            <button class="filter-btn"            data-filter="昼間" onclick="setFilter('昼間')">昼間</button>
+            <button class="filter-btn"            data-filter="夜間" onclick="setFilter('夜間')">夜間</button>
+        </div>
+    </div>
 
     <!-- ═══ AREA INFO BAR ═══ -->
     <div class="area-info-bar" id="areaInfoBar">
@@ -456,7 +501,14 @@
     // エリア読み込み
     // ============================================================
     async function loadAreas() {
-        const select = document.getElementById("areaSelect");
+        const select       = document.getElementById("areaSelect");
+        const selectMobile = document.getElementById("areaSelectMobile");
+        function addOption(sel, a) {
+            const opt = document.createElement("option");
+            opt.value = a.id;
+            opt.textContent = `${a.id}  ${a.name}`;
+            sel.appendChild(opt);
+        }
         try {
             let areas;
             if (useDemo) {
@@ -468,18 +520,15 @@
             }
             areas.forEach(a => {
                 areaDataMap[a.id] = a;
-                const opt = document.createElement("option");
-                opt.value = a.id;
-                opt.textContent = `${a.id}  ${a.name}`;
-                select.appendChild(opt);
+                addOption(select, a);
+                addOption(selectMobile, a);
             });
         } catch(e) {
             console.warn("エリア取得失敗。デモデータを使用:", e);
             DEMO_AREAS.forEach(a => {
                 areaDataMap[a.id] = a;
-                const opt = document.createElement("option");
-                opt.value = a.id; opt.textContent = `${a.id}  ${a.name}`;
-                select.appendChild(opt);
+                addOption(select, a);
+                addOption(selectMobile, a);
             });
         }
     }
@@ -489,14 +538,21 @@
     // ============================================================
     function onAreaChange() {
         const areaId = document.getElementById("areaSelect").value;
-        const bar    = document.getElementById("areaInfoBar");
-        if (!areaId) {
-            bar.classList.remove("visible");
-            return;
-        }
+        // モバイルセレクトを同期
+        document.getElementById("areaSelectMobile").value = areaId;
+        _updateAreaInfo(areaId);
+    }
+    function onAreaChangeMobile() {
+        const areaId = document.getElementById("areaSelectMobile").value;
+        // デスクトップセレクトを同期
+        document.getElementById("areaSelect").value = areaId;
+        _updateAreaInfo(areaId);
+    }
+    function _updateAreaInfo(areaId) {
+        const bar = document.getElementById("areaInfoBar");
+        if (!areaId) { bar.classList.remove("visible"); return; }
         const area = areaDataMap[areaId];
         if (!area) { bar.classList.remove("visible"); return; }
-
         document.getElementById("areaInfoName").textContent = `${area.id}  ${area.name}`;
         document.getElementById("areaInfoAddr").textContent = area.address || "";
         document.getElementById("areaInfoDesc").textContent = area.desc    || "（地域特性情報なし）";
@@ -507,11 +563,20 @@
     // 拠点データ読み込み
     // ============================================================
     async function loadData() {
-        const areaId = document.getElementById("areaSelect").value;
+        // モバイルとデスクトップどちらのセレクトが使われているか判定
+        const isMobile = window.innerWidth <= 768;
+        const areaId = isMobile
+            ? document.getElementById("areaSelectMobile").value
+            : document.getElementById("areaSelect").value;
         if (!areaId) { alert("エリアを選択してください"); return; }
+        // 両セレクトを同期
+        document.getElementById("areaSelect").value       = areaId;
+        document.getElementById("areaSelectMobile").value = areaId;
 
         const btn = document.getElementById("loadBtn");
-        btn.disabled = true; btn.textContent = "読込中...";
+        const btnM = document.getElementById("loadBtnMobile");
+        btn.disabled = true;  btn.textContent  = "読込中...";
+        btnM.disabled = true; btnM.textContent = "⏳";
         setStatus("データ取得中...");
         clearMarkers(); closePanel();
 
@@ -529,12 +594,14 @@
             allFacilities = facilities;
             applyFilter();
             setStatus(`${facilities.length} 件のデータを表示中`);
-            document.getElementById("reportBtn").disabled = facilities.length === 0;
+            document.getElementById("reportBtn").disabled       = facilities.length === 0;
+            document.getElementById("reportBtnMobile").disabled = facilities.length === 0;
         } catch(e) {
             console.error("拠点データ取得エラー:", e);
             setStatus("❌ データ取得失敗");
         } finally {
-            btn.disabled = false; btn.textContent = "🔄 読込";
+            btn.disabled  = false; btn.textContent  = "🔄 読込";
+            btnM.disabled = false; btnM.textContent = "🔄";
         }
     }
 
