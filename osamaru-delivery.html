@@ -10,10 +10,10 @@
 <style>
 
 body{
-    font-family: sans-serif;
-    background:#f5f7fa;
+    font-family: -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto;
+    background:#f4f6f8;
     margin:0;
-    padding:40px 20px;
+    padding:30px 15px;
 }
 
 .container{
@@ -23,33 +23,40 @@ body{
     border-radius:12px;
     padding:30px;
     text-align:center;
-    box-shadow:0 4px 14px rgba(0,0,0,0.1);
+    box-shadow:0 6px 18px rgba(0,0,0,0.12);
 }
 
-h1{
+.title{
     font-size:22px;
+    font-weight:600;
     margin-bottom:20px;
 }
 
 .status{
-    font-size:16px;
-    margin-bottom:20px;
+    font-size:15px;
+    margin-bottom:10px;
+    color:#444;
 }
 
 .pin{
-    font-size:48px;
+    font-size:52px;
     font-weight:bold;
-    letter-spacing:6px;
-    color:#1e88e5;
+    letter-spacing:8px;
+    color:#1976d2;
+    margin:15px 0;
+}
+
+.message{
+    margin-top:20px;
+    font-size:14px;
+    color:#555;
+    line-height:1.7;
 }
 
 .error{
-    color:#d32f2f;
+    color:#c62828;
     font-size:16px;
-}
-
-.loading{
-    color:#777;
+    line-height:1.6;
 }
 
 .footer{
@@ -66,13 +73,15 @@ h1{
 
 <div class="container">
 
-<h1>オサマール宅配BOX</h1>
+<div class="title">オサマール宅配BOX</div>
 
-<div id="status" class="status loading">
+<div id="status" class="status">
 確認しています...
 </div>
 
 <div id="pin" class="pin"></div>
+
+<div id="message" class="message"></div>
 
 <div class="footer">
 Osamal Delivery Box
@@ -82,27 +91,29 @@ Osamal Delivery Box
 
 <script>
 
-/////////////////////////////////////////////////////
-// 設定
-/////////////////////////////////////////////////////
+//////////////////////////////////////////////////
+// Logic Apps URL
+//////////////////////////////////////////////////
 
-const API_URL = "https://prod-14.japaneast.logic.azure.com:443/workflows/b5bfd56892f145a9a533c603720ed37c/triggers/When_an_HTTP_request_is_received/paths/invoke?api-version=2016-10-01&sp=%2Ftriggers%2FWhen_an_HTTP_request_is_received%2Frun&sv=1.0&sig=wIYjLIuj7dnU34BGayFV5pbTie6xNsH7lyMcAvuoneU";
-// ↑ LogicApps の URL に変更
+const API_URL =
+"https://prod-14.japaneast.logic.azure.com/workflows/XXXX/triggers/When_an_HTTP_request_is_received/paths/invoke?api-version=2016-10-01&sp=XXXX&sv=1.0&sig=XXXX";
+// ↑ Logic Apps のURLに変更
 
 
-/////////////////////////////////////////////////////
+//////////////////////////////////////////////////
 // URLパラメータ取得
-/////////////////////////////////////////////////////
+//////////////////////////////////////////////////
 
 function getParam(name){
+
     const params = new URLSearchParams(window.location.search);
     return params.get(name);
+
 }
 
-
-/////////////////////////////////////////////////////
+//////////////////////////////////////////////////
 // API呼び出し
-/////////////////////////////////////////////////////
+//////////////////////////////////////////////////
 
 async function loadPin(){
 
@@ -119,11 +130,14 @@ async function loadPin(){
 
     try{
 
-        const url = API_URL + "&box=" + encodeURIComponent(box) + "&key=" + encodeURIComponent(key);
+        const url =
+        API_URL +
+        "&box=" + encodeURIComponent(box) +
+        "&key=" + encodeURIComponent(key);
 
-        const response = await fetch(url);
+        const res = await fetch(url);
 
-        const data = await response.json();
+        const data = await res.json();
 
         if(data.status === "open"){
 
@@ -133,6 +147,10 @@ async function loadPin(){
             document.getElementById("pin").innerHTML =
             data.pin;
 
+            document.getElementById("message").innerHTML =
+            "・暗証番号は一度しか表示されません。<br>" +
+            "・必ず荷物を入れた後、扉を閉めてください。";
+
         }
         else{
 
@@ -140,6 +158,7 @@ async function loadPin(){
             "<span class='error'>申し訳ありません。<br>現在このBOXは解錠できません。</span>";
 
             document.getElementById("pin").innerHTML = "";
+            document.getElementById("message").innerHTML = "";
 
         }
 
@@ -153,10 +172,9 @@ async function loadPin(){
 
 }
 
-
-/////////////////////////////////////////////////////
+//////////////////////////////////////////////////
 // 実行
-/////////////////////////////////////////////////////
+//////////////////////////////////////////////////
 
 loadPin();
 
