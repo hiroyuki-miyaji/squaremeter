@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+
+<title>オサマール宅配BOX</title>
+
+<style>
+
+body{
+    font-family: sans-serif;
+    background:#f5f7fa;
+    margin:0;
+    padding:40px 20px;
+}
+
+.container{
+    max-width:420px;
+    margin:auto;
+    background:white;
+    border-radius:12px;
+    padding:30px;
+    text-align:center;
+    box-shadow:0 4px 14px rgba(0,0,0,0.1);
+}
+
+h1{
+    font-size:22px;
+    margin-bottom:20px;
+}
+
+.status{
+    font-size:16px;
+    margin-bottom:20px;
+}
+
+.pin{
+    font-size:48px;
+    font-weight:bold;
+    letter-spacing:6px;
+    color:#1e88e5;
+}
+
+.error{
+    color:#d32f2f;
+    font-size:16px;
+}
+
+.loading{
+    color:#777;
+}
+
+.footer{
+    margin-top:25px;
+    font-size:12px;
+    color:#999;
+}
+
+</style>
+
+</head>
+
+<body>
+
+<div class="container">
+
+<h1>オサマール宅配BOX</h1>
+
+<div id="status" class="status loading">
+確認しています...
+</div>
+
+<div id="pin" class="pin"></div>
+
+<div class="footer">
+Osamal Delivery Box
+</div>
+
+</div>
+
+<script>
+
+/////////////////////////////////////////////////////
+// 設定
+/////////////////////////////////////////////////////
+
+const API_URL = "https://prod-14.japaneast.logic.azure.com:443/workflows/b5bfd56892f145a9a533c603720ed37c/triggers/When_an_HTTP_request_is_received/paths/invoke?api-version=2016-10-01&sp=%2Ftriggers%2FWhen_an_HTTP_request_is_received%2Frun&sv=1.0&sig=wIYjLIuj7dnU34BGayFV5pbTie6xNsH7lyMcAvuoneU";
+// ↑ LogicApps の URL に変更
+
+
+/////////////////////////////////////////////////////
+// URLパラメータ取得
+/////////////////////////////////////////////////////
+
+function getParam(name){
+    const params = new URLSearchParams(window.location.search);
+    return params.get(name);
+}
+
+
+/////////////////////////////////////////////////////
+// API呼び出し
+/////////////////////////////////////////////////////
+
+async function loadPin(){
+
+    const box = getParam("box");
+    const key = getParam("key");
+
+    if(!box || !key){
+
+        document.getElementById("status").innerHTML =
+        "<span class='error'>URLが正しくありません</span>";
+
+        return;
+    }
+
+    try{
+
+        const url = API_URL + "&box=" + encodeURIComponent(box) + "&key=" + encodeURIComponent(key);
+
+        const response = await fetch(url);
+
+        const data = await response.json();
+
+        if(data.status === "open"){
+
+            document.getElementById("status").innerHTML =
+            "BOX番号 : " + box;
+
+            document.getElementById("pin").innerHTML =
+            data.pin;
+
+        }
+        else{
+
+            document.getElementById("status").innerHTML =
+            "<span class='error'>申し訳ありません。<br>現在このBOXは解錠できません。</span>";
+
+            document.getElementById("pin").innerHTML = "";
+
+        }
+
+    }
+    catch(e){
+
+        document.getElementById("status").innerHTML =
+        "<span class='error'>通信エラーが発生しました</span>";
+
+    }
+
+}
+
+
+/////////////////////////////////////////////////////
+// 実行
+/////////////////////////////////////////////////////
+
+loadPin();
+
+</script>
+
+</body>
+</html>
