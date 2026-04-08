@@ -300,7 +300,7 @@
                 <button class="filter-btn"            data-filter="昼夜間" onclick="setFilter('昼夜間')">昼夜間</button>
             </div>
             <button class="load-btn" id="loadBtn" onclick="loadData()">🔄 読込</button>
-            <button class="report-btn" id="reportBtn" disabled onclick="generateReport()">📄 <span>レポート生成</span></button>
+            <button class="report-btn" id="reportBtn" disabled onclick="generateReportSafe()">📄 <span>レポート生成</span></button>
         </div>
         <div class="header-stats">
             <span class="stat-chip chip-all"   id="chipTotal">0 件</span>
@@ -310,7 +310,7 @@
         </div>
         <div class="header-actions" style="display:none;">
             <button class="load-btn" id="loadBtnMobile" onclick="loadData()">🔄</button>
-            <button class="report-btn" id="reportBtnMobile" disabled onclick="generateReport()" style="padding:7px 10px;">📄</button>
+            <button class="report-btn" id="reportBtnMobile" disabled onclick="generateReportSafe()" style="padding:7px 10px;">📄</button>
         </div>
     </header>
 
@@ -755,40 +755,395 @@
     }
 
     // ── レポート生成 ──
-    function generateReport() {
-        const areaId=document.getElementById("areaSelect").value; const area=areaDataMap[areaId]||{};
-        const today=new Date().toLocaleDateString("ja-JP",{year:"numeric",month:"long",day:"numeric"});
+
+    // Google Static Maps URL生成
+    function staticMapUrl(lat, lng, zoom, width, height, markers) {
+        const KEY = "AIzaSyACm4lK4rdatQbwGIwGA1s7Vv74VEXzoZc";
+        let url = `https://maps.googleapis.com/maps/api/staticmap?center=${lat},${lng}&zoom=${zoom}&size=${width}x${height}&scale=2&maptype=roadmap&language=ja&key=${KEY}`;
+        if (markers && markers.length) {
+            const dayM   = markers.filter(f => f.kubun === "昼間");
+            const nightM = markers.filter(f => f.kubun === "夜間");
+            const bothM  = markers.filter(f => f.kubun === "昼夜間");
+            if (dayM.length)   url += "&markers=color:blue|size:small|"   + dayM.map(f   => `${f.lat},${f.lng}`).join("|");
+            if (nightM.length) url += "&markers=color:purple|size:small|" + nightM.map(f => `${f.lat},${f.lng}`).join("|");
+            if (bothM.length)  url += "&markers=color:green|size:small|"  + bothM.map(f  => `${f.lat},${f.lng}`).join("|");
+        }
+        return url;
+    }
+
+    // ══════════════════════════════════════════════════════════
+    // レポート生成
+    // ══════════════════════════════════════════════════════════
+    async function generateReport() {
+        const areaId = document.getElementById("areaSelect").value;
+        const area   = areaDataMap[areaId] || {};
+        const today  = new Date().toLocaleDateString("ja-JP", { year:"numeric", month:"long", day:"numeric" });
+
+        // 中心座標：全拠点の重心
+        const validFacs = allFacilities.filter(f => f.lat && f.lng);
+        const centerLat = validFacs.length
+            ? validFacs.reduce((s, f) => s + parseFloat(f.lat), 0) / validFacs.length : currentLat;
+        const centerLng = validFacs.length
+            ? validFacs.reduce((s, f) => s + parseFloat(f.lng), 0) / validFacs.length : currentLng;
+
+        // ボタン無効化・ローディング表示
+        const reportBtn  = document.getElementById("reportBtn");
+        const reportBtnM = document.getElementById("reportBtnMobile");
+        reportBtn.disabled = reportBtnM.disabled = true;
+        reportBtn.textContent = "生成中...";
+
+        // ── 地図画像生成（左：Google Static Maps） ──
+        const Z = 14, W = 800, H = 400;
+        const proposalImgSrc = staticMapUrl(centerLat, centerLng, Z, W, H, validFacs);
+
+        // ハザードポータルURL（右カラムのリンクに使用）
+        const FLOOD_PORTAL_URL   = `https://disaportal.gsi.go.jp/hazardmap/maps/index.html?ll=${centerLat},${centerLng}&z=${Z}&base=pale&ls=seamless%7Cflood_list_l2%2C0.8%7Cflood_l2_keizoku%2C0.8%7Cdosha_keikai_dosekiryu%2C0.8%7Ctsunamishinsui_raster%2C0.8&disp=0101110000010111100000001&vs=c1j0l0u0t0h0z0`;
+        const DEBRIS_PORTAL_URL  = `https://disaportal.gsi.go.jp/hazardmap/maps/index.html?ll=${centerLat},${centerLng}&z=${Z}&base=pale&ls=seamless%7Cdosha_keikai_dosekiryu%2C0.8%7Cdosha_keikai_jisuberi%2C0.8%7Cdosha_keikai_kyukeisha%2C0.8&disp=0000000000011110000000001&vs=c1j0l0u0t0h0z0`;
+        const TSUNAMI_PORTAL_URL = `https://disaportal.gsi.go.jp/hazardmap/maps/index.html?ll=${centerLat},${centerLng}&z=${Z}&base=pale&ls=seamless%7Ctsunamishinsui_raster%2C0.8%7Ctakashio_sinsuisin_raster%2C0.8&disp=0100010000000000000000001&vs=c1j0l0u0t0h0z0`;
+        const SHELTER_URL        = `https://maps.gsi.go.jp/#${Z}/${centerLat}/${centerLng}/&base=std&ls=std%7Cskhb01&disp=11&lcd=skhb01&vs=c1g1j0h0k0l0u0t0z0r0s0m0f0&d=m`;
+        const ALL_HAZARD_URL     = `https://disaportal.gsi.go.jp/hazardmap/maps/index.html?ll=${centerLat},${centerLng}&z=${Z}&base=pale&ls=seamless%7Ctakashio_sinsuisin_raster%2C0.8%7Ctsunamishinsui_raster%2C0.8%7Cflood_list_l2%2C0.8%7Cflood_l2_keizoku%2C0.8%7Cdosha_keikai_dosekiryu%2C0.8%7Cdosha_keikai_jisuberi%2C0.8%7Cdosha_keikai_kyukeisha%2C0.8&disp=0101110000011111000000001&vs=c1j0l0u0t0h0z0`;
+
+        // ── 地図＋リスクカードセクションを組み立て ──
+        const mapSection = (() => {
+            // 左：提案マップ
+            const proposalTag = `<img src="${proposalImgSrc}"
+                style="width:100%;height:auto;display:block;border-radius:6px;" alt="防災倉庫候補マップ"
+                onerror="this.style.display='none';this.nextElementSibling.style.display='flex';">
+                <div style="display:none;align-items:center;justify-content:center;height:200px;
+                    background:#f5f6f8;border-radius:6px;color:#9ca3af;font-size:12px;
+                    flex-direction:column;gap:8px;">
+                  <div style="font-size:24px;">🗺️</div>
+                  <div>地図画像を読み込めませんでした</div>
+                  <div style="font-size:10px;">Google Cloud Console で Maps Static API を有効にしてください</div>
+                </div>`;
+
+            const legend = `<div style="display:flex;gap:12px;flex-wrap:wrap;margin-top:8px;font-size:10px;color:#4b5563;">
+                <span><span style="display:inline-block;width:10px;height:10px;border-radius:50%;
+                    background:#1a7fe8;margin-right:3px;vertical-align:middle;"></span>昼間拠点</span>
+                <span><span style="display:inline-block;width:10px;height:10px;border-radius:50%;
+                    background:#7c3aed;margin-right:3px;vertical-align:middle;"></span>夜間拠点</span>
+                <span><span style="display:inline-block;width:10px;height:10px;border-radius:50%;
+                    background:#0d9488;margin-right:3px;vertical-align:middle;"></span>昼夜間拠点</span>
+            </div>`;
+
+            // 右：ハザード情報カード
+            // 地域特性テキストからキーワード抽出
+            const desc = area.desc || "";
+            const hasFlood   = /洪水|浸水|河川|氾濫|内水/.test(desc);
+            const hasDebris  = /土砂|崩壊|地すべり|急傾斜|崩落/.test(desc);
+            const hasTsunami = /津波|海岸|沿岸|港湾|海抜/.test(desc);
+            const hasFire    = /火災|密集|木造/.test(desc);
+
+            function riskCard(color, bg, border, icon, title, level, desc_text, linkUrl, linkLabel) {
+                const levelColors = { "高": "#dc2626", "中": "#d97706", "低": "#16a34a", "要確認": "#6b7280" };
+                const levelBg     = { "高": "#fee2e2", "中": "#fef9c3", "低": "#dcfce7", "要確認": "#f3f4f6" };
+                const lc = levelColors[level] || "#6b7280";
+                const lb = levelBg[level] || "#f3f4f6";
+                return `<div style="background:#fff;border:1px solid ${border};border-left:4px solid ${color};
+                    border-radius:8px;padding:10px 12px;margin-bottom:8px;">
+                    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;">
+                        <div style="display:flex;align-items:center;gap:6px;">
+                            <span style="font-size:16px;">${icon}</span>
+                            <span style="font-size:12px;font-weight:700;color:#1a1f2e;">${title}</span>
+                        </div>
+                        <span style="font-size:10px;font-weight:700;background:${lb};color:${lc};
+                            border:1px solid ${lc};border-radius:20px;padding:2px 8px;">リスク：${level}</span>
+                    </div>
+                    <div style="font-size:11px;color:#4b5563;line-height:1.7;margin-bottom:8px;">${desc_text}</div>
+                    <a href="${linkUrl}" target="_blank"
+                        style="display:inline-flex;align-items:center;gap:4px;font-size:10px;font-weight:700;
+                        color:${color};text-decoration:none;background:${bg};
+                        border:1px solid ${border};padding:4px 10px;border-radius:5px;">
+                        🔗 ${linkLabel}
+                    </a>
+                </div>`;
+            }
+
+            const floodCard = riskCard(
+                "#1d4ed8", "#eff6ff", "#bfdbfe",
+                "🌊", "洪水・浸水想定区域",
+                hasFlood ? "高" : "要確認",
+                hasFlood
+                    ? "地域特性より河川氾濫・浸水リスクが確認されています。L2想定（想定最大規模）の浸水深と防災倉庫の位置関係を確認してください。"
+                    : "洪水リスクについて地域特性テキストに明示的な記載がありません。ポータルで現地確認を推奨します。",
+                FLOOD_PORTAL_URL,
+                "洪水浸水想定区域を開く（ズーム" + Z + "）"
+            );
+
+            const debrisCard = riskCard(
+                "#92400e", "#fffbeb", "#fde68a",
+                "⛰️", "土砂災害警戒区域",
+                hasDebris ? "高" : "要確認",
+                hasDebris
+                    ? "地域特性より土砂災害（土石流・地すべり・急傾斜地崩壊）のリスクが確認されています。山際の拠点は特に確認が必要です。"
+                    : "土砂災害リスクについて地域特性テキストに明示的な記載がありません。ポータルで現地確認を推奨します。",
+                DEBRIS_PORTAL_URL,
+                "土砂災害警戒区域を開く（ズーム" + Z + "）"
+            );
+
+            const tsunamiCard = riskCard(
+                "#dc2626", "#fff1f2", "#fecaca",
+                "🌏", "津波浸水想定区域",
+                hasTsunami ? "高" : "低",
+                hasTsunami
+                    ? "地域特性より津波・高潮リスクが確認されています。沿岸・河口部の拠点は到達時間と避難ルートの確認が必須です。"
+                    : "内陸エリアのため津波リスクは低いと考えられますが、念のため確認をお勧めします。",
+                TSUNAMI_PORTAL_URL,
+                "津波浸水想定区域を開く（ズーム" + Z + "）"
+            );
+
+            const shelterCard = riskCard(
+                "#15803d", "#f0fdf4", "#bbf7d0",
+                "🏥", "指定緊急避難場所",
+                "要確認",
+                "防災倉庫候補から最寄りの指定緊急避難場所までの経路と距離を確認し、物資搬送ルートの計画に活用してください。",
+                SHELTER_URL,
+                "指定緊急避難場所を国土地理院で確認"
+            );
+
+            const allHazardBtn = `<a href="${ALL_HAZARD_URL}" target="_blank"
+                style="display:flex;align-items:center;justify-content:center;gap:6px;
+                width:100%;padding:9px;margin-top:4px;
+                background:#1a1f2e;color:#fff;text-decoration:none;
+                border-radius:7px;font-size:11px;font-weight:700;">
+                🗺️ 全ハザード情報を重ねるハザードマップで開く
+            </a>`;
+
+            return `<div class="section">
+                <div class="section-title">エリアマップ・ハザード情報（ズームレベル ${Z}）</div>
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;align-items:start;">
+                    <div>
+                        <div style="font-size:11px;font-weight:700;color:#4b5563;
+                            margin-bottom:8px;display:flex;align-items:center;gap:4px;">
+                            📍 防災倉庫候補マップ
+                            <span style="font-size:9px;font-weight:400;color:#9ca3af;">（中心座標 ${centerLat.toFixed(4)}, ${centerLng.toFixed(4)}）</span>
+                        </div>
+                        <div style="border:1px solid #e2e6ea;border-radius:8px;overflow:hidden;
+                            box-shadow:0 1px 4px rgba(0,0,0,0.06);">${proposalTag}</div>
+                        ${legend}
+                        <div style="margin-top:10px;padding:8px 10px;background:#f5f6f8;
+                            border-radius:6px;font-size:10px;color:#9ca3af;line-height:1.6;">
+                            ※ 地図：Google Maps Static API<br>
+                            青：昼間拠点 ／ 紫：夜間拠点 ／ 緑：昼夜間拠点
+                        </div>
+                    </div>
+                    <div>
+                        <div style="font-size:11px;font-weight:700;color:#dc2626;
+                            margin-bottom:8px;display:flex;align-items:center;gap:4px;">
+                            ⚠️ ハザード・避難場所リスク情報
+                        </div>
+                        ${floodCard}
+                        ${debrisCard}
+                        ${tsunamiCard}
+                        ${shelterCard}
+                        ${allHazardBtn}
+                    </div>
+                </div>
+            </div>`;
+        })();
+
         function buildRows(kubun) {
-            const filtered=allFacilities.filter(f=>f.kubun===kubun);
-            if(!filtered.length) return `<tr><td colspan="5" style="text-align:center;color:#9ca3af;padding:16px;">該当なし</td></tr>`;
-            return filtered.map(f=>{
-                const stock=f.stock||""; const reqM=stock.match(/必須[：:]\s*([^／/]+)/); const recM=stock.match(/推奨[：:]\s*([^／/]+)/);
-                const reqStr=reqM?reqM[1].trim():""; const recStr=recM?recM[1].trim():"";
-                const icon=typeIcons[f.type]||"📍";
-                return `<tr><td><strong>${f.name}</strong><br><span style="font-size:11px;color:#6b7280;">${icon} ${f.type}　${f.city} ${f.address}</span></td><td style="text-align:center;">${f.dist||"-"}<br><span style="font-size:11px;color:#6b7280;">徒歩${f.walk||"-"}</span></td><td>${f.reason||"-"}</td><td>${reqStr?`<div style="margin-bottom:4px;"><span style="font-size:10px;font-weight:700;color:#e8410a;">【必須】</span><br>${reqStr}</div>`:""}${recStr?`<div><span style="font-size:10px;font-weight:700;color:#4b5563;">【推奨】</span><br>${recStr}</div>`:""}${!reqStr&&!recStr?stock:""}</td><td style="font-size:11px;color:#4b5563;">${f.stockReason||"-"}</td></tr>`;
+            const filtered = allFacilities.filter(f => f.kubun === kubun);
+            if (!filtered.length) return `<tr><td colspan="5" style="text-align:center;color:#9ca3af;padding:16px;">該当なし</td></tr>`;
+            return filtered.map(f => {
+                const stock = f.stock || "";
+                const reqM = stock.match(/必須[：:]\s*([^／/]+)/);
+                const recM = stock.match(/推奨[：:]\s*([^／/]+)/);
+                const reqStr = reqM ? reqM[1].trim() : "";
+                const recStr = recM ? recM[1].trim() : "";
+                const icon = typeIcons[f.type] || "📍";
+                return `<tr>
+                    <td><strong>${f.name}</strong><br><span style="font-size:11px;color:#6b7280;">${icon} ${f.type}　${f.city} ${f.address}</span></td>
+                    <td style="text-align:center;">${f.dist||"-"}<br><span style="font-size:11px;color:#6b7280;">徒歩${f.walk||"-"}</span></td>
+                    <td>${f.reason||"-"}</td>
+                    <td>${reqStr?`<div style="margin-bottom:4px;"><span style="font-size:10px;font-weight:700;color:#e8410a;">【必須】</span><br>${reqStr}</div>`:""}${recStr?`<div><span style="font-size:10px;font-weight:700;color:#4b5563;">【推奨】</span><br>${recStr}</div>`:""}${!reqStr&&!recStr?stock:""}</td>
+                    <td style="font-size:11px;color:#4b5563;">${f.stockReason||"-"}</td>
+                </tr>`;
             }).join("");
         }
+
         function formatDesc(text) {
-            if(!text) return "<p>（情報なし）</p>";
-            return text.split(/\n\n+/).map(block=>{
-                const lines=block.split(/\n/).map(l=>l.trim()).filter(Boolean); if(!lines.length) return "";
+            if (!text) return "<p>（情報なし）</p>";
+            return text.split(/\n\n+/).map(block => {
+                const lines = block.split(/\n/).map(l => l.trim()).filter(Boolean);
+                if (!lines.length) return "";
                 return `<div style="margin-bottom:18px;"><div style="font-size:14px;font-weight:700;color:#1a1f2e;border-bottom:1px solid #e2e6ea;padding-bottom:4px;margin-bottom:8px;">${lines[0]}</div><p style="font-size:13px;color:#4b5563;line-height:1.8;">${lines.slice(1).join(" ")}</p></div>`;
             }).join("");
         }
-        const html=`<!DOCTYPE html><html lang="ja"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0"><title>${area.name||areaId} エリア防災倉庫設置提案レポート</title><link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;700;900&display=swap" rel="stylesheet"><style>*{box-sizing:border-box;margin:0;padding:0;}body{font-family:'Noto Sans JP',sans-serif;color:#1a1f2e;background:#fff;padding:40px;}@media print{body{padding:20px;}}.report-wrap{max-width:900px;margin:0 auto;}.cover{text-align:center;padding:40px 0 32px;border-bottom:3px solid #e8410a;margin-bottom:36px;}.cover-eyebrow{font-size:12px;letter-spacing:2px;color:#e8410a;font-weight:700;text-transform:uppercase;margin-bottom:8px;}.cover-title{font-size:26px;font-weight:900;color:#1a1f2e;line-height:1.4;margin-bottom:6px;}.cover-sub{font-size:15px;font-weight:500;color:#4b5563;margin-bottom:16px;}.cover-meta{font-size:12px;color:#9ca3af;}.section{margin-bottom:36px;}.section-title{font-size:16px;font-weight:700;color:#1a1f2e;border-left:4px solid #e8410a;padding-left:10px;margin-bottom:16px;}.summary-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;}.summary-card{background:#f5f6f8;border-radius:8px;padding:14px 16px;text-align:center;}.summary-card .num{font-size:28px;font-weight:900;color:#e8410a;}.summary-card .label{font-size:11px;color:#6b7280;margin-top:2px;}table{width:100%;border-collapse:collapse;font-size:12px;}th{background:#1a1f2e;color:#fff;padding:9px 12px;text-align:left;font-weight:700;font-size:11px;}td{padding:10px 12px;border-bottom:1px solid #e2e6ea;vertical-align:top;line-height:1.6;}tr:nth-child(even) td{background:#f9fafb;}.kubun-header td{background:#f0f2f5;font-weight:700;font-size:12px;color:#4b5563;padding:8px 12px;}.day-label{display:inline-block;background:#e8f2fd;color:#1a7fe8;border-radius:4px;padding:2px 8px;font-size:11px;font-weight:700;}.night-label{display:inline-block;background:#f3eefe;color:#7c3aed;border-radius:4px;padding:2px 8px;font-size:11px;font-weight:700;}.both-label{display:inline-block;background:#ccfbf1;color:#0d9488;border-radius:4px;padding:2px 8px;font-size:11px;font-weight:700;}.report-footer{margin-top:40px;padding-top:16px;border-top:1px solid #e2e6ea;font-size:11px;color:#9ca3af;text-align:center;}@media print{.no-print{display:none!important;}table{font-size:10px;}th,td{padding:6px 8px;}body{padding:10px;}}</style></head><body><div class="report-wrap"><div class="cover"><div class="cover-eyebrow">防災倉庫設置提案レポート</div><div class="cover-title">${area.name||areaId}（${area.address?area.address.replace(/〒\d{3}-\d{4}\s*/,""):""}）</div><div class="cover-sub">エリアへの防災倉庫設置提案（半径1km圏内）</div><div class="cover-meta">作成日：${today}　／　対象エリア：${areaId}</div></div><div class="section"><div class="section-title">拠点サマリー</div><div class="summary-grid"><div class="summary-card"><div class="num">${allFacilities.length}</div><div class="label">総拠点数</div></div><div class="summary-card"><div class="num" style="color:#1a7fe8;">${allFacilities.filter(f=>f.kubun==="昼間").length}</div><div class="label">昼間拠点</div></div><div class="summary-card"><div class="num" style="color:#7c3aed;">${allFacilities.filter(f=>f.kubun==="夜間").length}</div><div class="label">夜間拠点</div></div></div></div><div class="section"><div class="section-title">地域特性サマリー</div>${formatDesc(area.desc)}</div><div class="section"><div class="section-title">拠点一覧・備蓄品提案</div><table><thead><tr><th style="width:22%;">施設名 / 種別・住所</th><th style="width:8%;">中心地距離</th><th style="width:25%;">選定理由</th><th style="width:27%;">推奨備蓄品</th><th style="width:18%;">備蓄品選定理由</th></tr></thead><tbody><tr class="kubun-header"><td colspan="5"><span class="day-label">昼間拠点</span></td></tr>${buildRows("昼間")}<tr class="kubun-header"><td colspan="5"><span class="night-label">夜間拠点</span></td></tr>${buildRows("夜間")}<tr class="kubun-header"><td colspan="5"><span class="both-label">昼夜間拠点</span></td></tr>${buildRows("昼夜間")}</tbody></table></div><div class="report-footer">このレポートは防災倉庫マップアプリより自動生成されました。</div></div></body></html>`;
 
-        const areaIdR=document.getElementById("areaSelect").value||document.getElementById("areaSelectMobile").value;
-        const areaNameT=(areaDataMap[areaIdR]||{}).name||"レポート";
-        const dlFile="防災倉庫レポート_"+areaNameT+"_"+new Date().toISOString().slice(0,10)+".html";
-        document.getElementById("reportModalTitle").textContent=areaNameT+" 防災倉庫設置提案レポート";
-        const parser=new DOMParser(), doc=parser.parseFromString(html,"text/html");
-        const styleTag=doc.querySelector("style"), reportWrap=doc.querySelector(".report-wrap");
-        const modalBody=document.getElementById("reportModalBody"); modalBody.innerHTML="";
-        if(styleTag){ const s=document.createElement("style"); s.textContent=styleTag.textContent; modalBody.appendChild(s); }
-        if(reportWrap) modalBody.appendChild(reportWrap.cloneNode(true)); else modalBody.innerHTML=doc.body.innerHTML;
-        document.getElementById("reportDlBtn").onclick=function(){ const e="data:text/html;charset=utf-8,"+encodeURIComponent(html); const a=document.createElement("a"); a.href=e; a.download=dlFile; a.style.display="none"; document.body.appendChild(a); a.click(); setTimeout(()=>{try{document.body.removeChild(a);}catch(_){}},2000); };
-        const overlay=document.getElementById("reportModalOverlay"); overlay.classList.add("open"); overlay.scrollTop=0; document.body.style.overflow="hidden";
+        const html = `<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>${area.name||areaId} エリア防災倉庫設置提案レポート</title>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;700;900&display=swap" rel="stylesheet">
+<style>
+*{box-sizing:border-box;margin:0;padding:0;}
+body{font-family:'Noto Sans JP',sans-serif;color:#1a1f2e;background:#fff;padding:40px;}
+.report-wrap{max-width:960px;margin:0 auto;}
+.cover{text-align:center;padding:40px 0 32px;border-bottom:3px solid #e8410a;margin-bottom:36px;}
+.cover-eyebrow{font-size:12px;letter-spacing:2px;color:#e8410a;font-weight:700;text-transform:uppercase;margin-bottom:8px;}
+.cover-title{font-size:26px;font-weight:900;color:#1a1f2e;line-height:1.4;margin-bottom:6px;}
+.cover-sub{font-size:15px;font-weight:500;color:#4b5563;margin-bottom:16px;}
+.cover-meta{font-size:12px;color:#9ca3af;}
+.section{margin-bottom:36px;}
+.section-title{font-size:16px;font-weight:700;color:#1a1f2e;border-left:4px solid #e8410a;padding-left:10px;margin-bottom:16px;}
+.summary-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;}
+.summary-card{background:#f5f6f8;border-radius:8px;padding:14px 16px;text-align:center;}
+.summary-card .num{font-size:28px;font-weight:900;color:#e8410a;}
+.summary-card .label{font-size:11px;color:#6b7280;margin-top:2px;}
+table{width:100%;border-collapse:collapse;font-size:12px;}
+th{background:#1a1f2e;color:#fff;padding:9px 12px;text-align:left;font-weight:700;font-size:11px;}
+td{padding:10px 12px;border-bottom:1px solid #e2e6ea;vertical-align:top;line-height:1.6;}
+tr:nth-child(even) td{background:#f9fafb;}
+.kubun-header td{background:#f0f2f5;font-weight:700;font-size:12px;color:#4b5563;padding:8px 12px;}
+.day-label{display:inline-block;background:#e8f2fd;color:#1a7fe8;border-radius:4px;padding:2px 8px;font-size:11px;font-weight:700;}
+.night-label{display:inline-block;background:#f3eefe;color:#7c3aed;border-radius:4px;padding:2px 8px;font-size:11px;font-weight:700;}
+.both-label{display:inline-block;background:#ccfbf1;color:#0d9488;border-radius:4px;padding:2px 8px;font-size:11px;font-weight:700;}
+.report-footer{margin-top:40px;padding-top:16px;border-top:1px solid #e2e6ea;font-size:11px;color:#9ca3af;text-align:center;}
+@media print{
+  body{padding:10px;}
+  table{font-size:10px;}
+  th,td{padding:6px 8px;}
+  .no-print{display:none!important;}
+  .section{page-break-inside:avoid;}
+}
+</style>
+</head>
+<body>
+<div class="report-wrap">
+    <div class="cover">
+        <div class="cover-eyebrow">防災倉庫設置提案レポート</div>
+        <div class="cover-title">${area.name||areaId}（${area.address?area.address.replace(/〒\d{3}-\d{4}\s*/,""):""}）</div>
+        <div class="cover-sub">エリアへの防災倉庫設置提案（半径1km圏内）</div>
+        <div class="cover-meta">作成日：${today}　／　対象エリア：${areaId}</div>
+    </div>
+    <div class="section">
+        <div class="section-title">拠点サマリー</div>
+        <div class="summary-grid">
+            <div class="summary-card"><div class="num">${allFacilities.length}</div><div class="label">総拠点数</div></div>
+            <div class="summary-card"><div class="num" style="color:#1a7fe8;">${allFacilities.filter(f=>f.kubun==="昼間").length}</div><div class="label">昼間拠点</div></div>
+            <div class="summary-card"><div class="num" style="color:#7c3aed;">${allFacilities.filter(f=>f.kubun==="夜間").length}</div><div class="label">夜間拠点</div></div>
+            <div class="summary-card"><div class="num" style="color:#0d9488;">${allFacilities.filter(f=>f.kubun==="昼夜間").length}</div><div class="label">昼夜間拠点</div></div>
+        </div>
+    </div>
+    <div class="section">
+        <div class="section-title">地域特性サマリー</div>
+        ${formatDesc(area.desc)}
+    </div>
+    ${mapSection}
+    <div class="section">
+        <div class="section-title">拠点一覧・備蓄品提案</div>
+        <table>
+            <thead><tr>
+                <th style="width:22%;">施設名 / 種別・住所</th>
+                <th style="width:8%;">中心地距離</th>
+                <th style="width:25%;">選定理由</th>
+                <th style="width:27%;">推奨備蓄品</th>
+                <th style="width:18%;">備蓄品選定理由</th>
+            </tr></thead>
+            <tbody>
+                <tr class="kubun-header"><td colspan="5"><span class="day-label">昼間拠点</span></td></tr>
+                ${buildRows("昼間")}
+                <tr class="kubun-header"><td colspan="5"><span class="night-label">夜間拠点</span></td></tr>
+                ${buildRows("夜間")}
+                <tr class="kubun-header"><td colspan="5"><span class="both-label">昼夜間拠点</span></td></tr>
+                ${buildRows("昼夜間")}
+            </tbody>
+        </table>
+    </div>
+    <div class="report-footer">このレポートは防災倉庫マップアプリより自動生成されました。地図データ：国土地理院 / ハザードデータ：国土交通省・都道府県</div>
+</div>
+</body>
+</html>`;
+
+        // ── モーダル表示 ──
+        const areaIdR = document.getElementById("areaSelect").value || document.getElementById("areaSelectMobile").value;
+        const areaNameT = (areaDataMap[areaIdR]||{}).name || "レポート";
+        const dlFile = "防災倉庫レポート_" + areaNameT + "_" + new Date().toISOString().slice(0,10) + ".html";
+
+        document.getElementById("reportModalTitle").textContent = areaNameT + " 防災倉庫設置提案レポート";
+        const parser = new DOMParser(), doc = parser.parseFromString(html, "text/html");
+        const styleTag = doc.querySelector("style"), reportWrap = doc.querySelector(".report-wrap");
+        const modalBody = document.getElementById("reportModalBody"); modalBody.innerHTML = "";
+        if (styleTag) { const s = document.createElement("style"); s.textContent = styleTag.textContent; modalBody.appendChild(s); }
+        if (reportWrap) modalBody.appendChild(reportWrap.cloneNode(true)); else modalBody.innerHTML = doc.body.innerHTML;
+
+        document.getElementById("reportDlBtn").onclick = function() {
+            const enc = "data:text/html;charset=utf-8," + encodeURIComponent(html);
+            const a = document.createElement("a"); a.href = enc; a.download = dlFile; a.style.display = "none";
+            document.body.appendChild(a); a.click();
+            setTimeout(() => { try { document.body.removeChild(a); } catch(_){} }, 2000);
+        };
+
+        const overlay = document.getElementById("reportModalOverlay");
+        overlay.classList.add("open"); overlay.scrollTop = 0; document.body.style.overflow = "hidden";
+
+        // ボタン復元
+        reportBtn.disabled = reportBtnM.disabled = false;
+        reportBtn.textContent = "📄 レポート生成";
     }
+
+    // generateReport のエラーを確実にキャッチして UI を復元するラッパー
+    function generateReportSafe() {
+        generateReport().catch(err => {
+            console.error("レポート生成エラー:", err);
+            const reportBtn  = document.getElementById("reportBtn");
+            const reportBtnM = document.getElementById("reportBtnMobile");
+            if (reportBtn)  { reportBtn.disabled  = false; reportBtn.textContent  = "📄 レポート生成"; }
+            if (reportBtnM) { reportBtnM.disabled = false; reportBtnM.textContent = "📄"; }
+            alert("レポートの生成中にエラーが発生しました。\n詳細はブラウザのコンソールを確認してください。\n\nエラー: " + err.message);
+        });
+    }
+
+    function closeReportModal(){ document.getElementById("reportModalOverlay").classList.remove("open"); document.body.style.overflow=""; }
+
+    // ── サイドバー ──
+    function toggleSidebar(){ const sb=document.getElementById("sidebar"),ov=document.getElementById("sidebarOverlay"),open=sb.classList.toggle("open"); ov.style.display=open?"block":"none"; }
+    function closeSidebar(){ document.getElementById("sidebar").classList.remove("open"); document.getElementById("sidebarOverlay").style.display="none"; }
+    function setStatus(msg){ document.getElementById("statusBar").innerHTML=`<span class="status-dot"></span>${msg}`; }
+    document.addEventListener("keydown",e=>{ if(e.key==="Escape") closePanel(); });
+</script>
+<script>
+(g=>{var h,a,k,p="The Google Maps JavaScript API",c="google",l="importLibrary",q="__ib__",m=document,b=window;b=b[c]||(b[c]={});var d=b.maps||(b.maps={}),r=new Set,e=new URLSearchParams,u=()=>h||(h=new Promise(async(f,n)=>{await (a=m.createElement("script"));e.set("libraries",[...r]+"");for(k in g)e.set(k.replace(/[A-Z]/g,t=>"_"+t[0].toLowerCase()),g[k]);e.set("language","ja");e.set("callback",c+".maps."+q);a.src=`https://maps.${c}apis.com/maps/api/js?`+e;d[q]=f;a.onerror=()=>h=n(Error(p+" could not load."));a.nonce=m.querySelector("script[nonce]")?.nonce||"";m.head.append(a)}));d[l]?console.warn(p+" only loads once. Ignoring:",g):d[l]=(f,...n)=>r.add(f)&&u().then(()=>d[l](f,...n))})
+({key:"AIzaSyACm4lK4rdatQbwGIwGA1s7Vv74VEXzoZc", v:"weekly"});
+initMap();
+</script>
+</body>
+</html>
+
+    // Google Static Maps URL生成
+    function staticMapUrl(lat, lng, zoom, width, height, markers) {
+        const KEY = "AIzaSyACm4lK4rdatQbwGIwGA1s7Vv74VEXzoZc";
+        let url = `https://maps.googleapis.com/maps/api/staticmap?center=${lat},${lng}&zoom=${zoom}&size=${width}x${height}&scale=2&maptype=roadmap&language=ja&key=${KEY}`;
+        if (markers && markers.length) {
+            const dayM   = markers.filter(f => f.kubun === "昼間");
+            const nightM = markers.filter(f => f.kubun === "夜間");
+            const bothM  = markers.filter(f => f.kubun === "昼夜間");
+            if (dayM.length)   url += "&markers=color:blue|size:small|"   + dayM.map(f   => `${f.lat},${f.lng}`).join("|");
+            if (nightM.length) url += "&markers=color:purple|size:small|" + nightM.map(f => `${f.lat},${f.lng}`).join("|");
+            if (bothM.length)  url += "&markers=color:green|size:small|"  + bothM.map(f  => `${f.lat},${f.lng}`).join("|");
+        }
+        return url;
+    }
+
+    // ══════════════════════════════════════════════════════════
+    // レポート生成
+    // ══════════════════════════════════════════════════════════
+
+    // generateReport のエラーを確実にキャッチして UI を復元するラッパー
+    function generateReportSafe() {
+        generateReport().catch(err => {
+            console.error("レポート生成エラー:", err);
+            const reportBtn  = document.getElementById("reportBtn");
+            const reportBtnM = document.getElementById("reportBtnMobile");
+            if (reportBtn)  { reportBtn.disabled  = false; reportBtn.textContent  = "📄 レポート生成"; }
+            if (reportBtnM) { reportBtnM.disabled = false; reportBtnM.textContent = "📄"; }
+            alert("レポートの生成中にエラーが発生しました。\n詳細はブラウザのコンソールを確認してください。\n\nエラー: " + err.message);
+        });
+    }
+
     function closeReportModal(){ document.getElementById("reportModalOverlay").classList.remove("open"); document.body.style.overflow=""; }
 
     // ── サイドバー ──
