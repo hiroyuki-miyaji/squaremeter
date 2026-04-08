@@ -57,14 +57,14 @@
         .chip-both  { border-color: var(--both);   color: var(--both);  background: var(--both-light); }
 
         /* ═══ AREA INFO BAR ═══ */
-        .area-info-bar { background: var(--surface); border-bottom: 1px solid var(--border); padding: 0 20px; max-height: 0; overflow: hidden; transition: max-height 0.35s ease, padding 0.25s ease; flex-shrink: 0; z-index: 15; }
-        .area-info-bar.visible { max-height: 160px; padding: 12px 20px; }
-        .area-info-inner { display: flex; gap: 24px; align-items: flex-start; }
-        .area-info-left { flex-shrink: 0; }
-        .area-info-name { font-size: 16px; font-weight: 900; color: var(--text); line-height: 1.3; }
-        .area-info-addr { font-size: 11px; color: var(--text-muted); margin-top: 3px; }
-        .area-info-divider { width: 1px; background: var(--border); align-self: stretch; flex-shrink: 0; }
-        .area-info-desc { flex: 1; font-size: 11px; color: var(--text-secondary); line-height: 1.75; overflow-y: auto; max-height: 120px; white-space: pre-wrap; }
+        .area-info-bar { background: var(--surface); border-bottom: 1px solid var(--border); padding: 0 20px; display: none; flex-shrink: 0; z-index: 15; }
+        .area-info-bar.visible { display: block; padding: 10px 20px; }
+        .area-info-inner { display: flex; gap: 20px; align-items: flex-start; }
+        .area-info-left { flex-shrink: 0; width: 180px; }
+        .area-info-name { font-size: 13px; font-weight: 900; color: var(--text); line-height: 1.4; word-break: break-all; }
+        .area-info-addr { font-size: 10px; color: var(--text-muted); margin-top: 2px; }
+        .area-info-divider { width: 1px; min-height: 40px; background: var(--border); flex-shrink: 0; }
+        .area-info-desc { flex: 1; font-size: 11px; color: var(--text-secondary); line-height: 1.7; overflow-y: auto; max-height: 130px; white-space: pre-wrap; }
         .area-info-desc::-webkit-scrollbar { width: 3px; }
         .area-info-desc::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 2px; }
 
@@ -256,7 +256,7 @@
             .sidebar { position: absolute; left: 0; top: 0; bottom: 0; z-index: 30; width: 280px; transform: translateX(-100%); transition: transform 0.25s ease; box-shadow: var(--shadow-lg); }
             .sidebar.open { transform: translateX(0); }
             .info-panel { bottom: 12px; right: 8px; left: 8px; width: auto; }
-            .area-info-bar.visible { max-height: 220px; }
+            .area-info-bar.visible { display: block; }
             /* モバイルではハザードパネルをフルオーバーレイ */
             .hazard-panel.open { position: absolute; right: 0; top: 0; bottom: 0; z-index: 50; width: 100% !important; }
         }
@@ -532,7 +532,7 @@
         const headers = rows[0];
         return rows.slice(1).map(row => { const obj={}; headers.forEach((h,i)=>{obj[h]=row[i]!==undefined?row[i]:""}); return obj; });
     }
-    function normalizeArea(row) { return { id:row["エリア番号"]||"", name:row["エリア名称"]||"", address:row["住所"]||"", desc:row["地域特性"]||"" }; }
+    function normalizeArea(row) { return { id:row["エリア番号"]||"", name:row["エリア名称"]||"", address:row["住所"]||"", desc:row["地域特性サマリー"]||row["地域特性"]||"" }; }
     function normalizeFacility(row) {
         return { area:row["エリア番号"]||"", kubun:row["区分"]||"", type:row["施設種類"]||"", name:row["施設名称"]||"",
             city:row["市区町村"]||"", address:row["住所"]||"", lat:row["緯度"]||"", lng:row["経度"]||"",
@@ -595,10 +595,14 @@
     function _updateAreaInfo(id) {
         const bar=document.getElementById("areaInfoBar");
         if(!id){ bar.classList.remove("visible"); return; }
-        const a=areaDataMap[id]; if(!a){ bar.classList.remove("visible"); return; }
-        document.getElementById("areaInfoName").textContent=`${a.id}  ${a.name}`;
-        document.getElementById("areaInfoAddr").textContent=a.address||"";
-        document.getElementById("areaInfoDesc").textContent=a.desc||"（地域特性情報なし）";
+        const a=areaDataMap[id];
+        // areaDataMap未登録でも選択肢テキストからエリアIDは表示
+        const name = a ? a.name : "";
+        const addr = a ? (a.address||"") : "";
+        const desc = a ? (a.desc||"（地域特性情報なし）") : "（地域特性情報なし）";
+        document.getElementById("areaInfoName").textContent = a ? `${a.id}  ${name}` : id;
+        document.getElementById("areaInfoAddr").textContent = addr;
+        document.getElementById("areaInfoDesc").textContent = desc;
         bar.classList.add("visible");
     }
 
