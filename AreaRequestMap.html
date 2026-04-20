@@ -277,6 +277,38 @@
         .rmbtn-close { background: rgba(255,255,255,0.15); color: #fff; }
         .report-modal-body { padding: 28px 32px 40px; }
         @media (max-width: 600px) { .report-modal { margin: 0; border-radius: 0; min-height: 100vh; } .report-modal-body { padding: 18px 14px 40px; } .rmbtn span { display: none; } }
+
+        /* ═══ SCORE MARKER ═══ */
+        .custom-marker.score-high   { background: #16a34a; }
+        .custom-marker.score-mid    { background: #d97706; }
+        .custom-marker.score-low    { background: #dc2626; }
+        .custom-marker.score-high.selected,
+        .custom-marker.score-mid.selected,
+        .custom-marker.score-low.selected { box-shadow: 0 0 0 4px rgba(232,65,10,0.35), 0 5px 16px rgba(0,0,0,0.3); }
+
+        /* ═══ SCORE SECTION IN PANEL ═══ */
+        .score-section { background: var(--surface2); border-radius: 8px; padding: 9px 10px; margin-bottom: 9px; }
+        .score-total-row { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
+        .score-total-label { font-size: 9px; font-weight: 700; color: var(--text-muted); letter-spacing: 1px; text-transform: uppercase; }
+        .score-total-badge { font-size: 15px; font-weight: 900; padding: 2px 10px; border-radius: 20px; }
+        .score-total-badge.high { background: #dcfce7; color: #15803d; }
+        .score-total-badge.mid  { background: #fef9c3; color: #92400e; }
+        .score-total-badge.low  { background: #fee2e2; color: #dc2626; }
+        .score-bar-row { display: flex; align-items: center; gap: 6px; margin-bottom: 4px; }
+        .score-bar-row:last-child { margin-bottom: 0; }
+        .score-bar-name { font-size: 9px; color: var(--text-secondary); width: 52px; flex-shrink: 0; }
+        .score-bar-track { flex: 1; height: 5px; background: var(--border); border-radius: 3px; overflow: hidden; }
+        .score-bar-fill { height: 5px; border-radius: 3px; transition: width 0.4s ease; }
+        .score-bar-fill.high { background: #16a34a; }
+        .score-bar-fill.mid  { background: #d97706; }
+        .score-bar-fill.low  { background: #dc2626; }
+        .score-bar-val { font-size: 9px; font-weight: 600; color: var(--text-secondary); width: 20px; text-align: right; flex-shrink: 0; }
+
+        /* サイドバー スコアバッジ */
+        .item-score { position: absolute; right: 12px; bottom: 10px; font-size: 9px; font-weight: 700; padding: 1px 6px; border-radius: 10px; }
+        .item-score.high { background: #dcfce7; color: #15803d; }
+        .item-score.mid  { background: #fef9c3; color: #92400e; }
+        .item-score.low  { background: #fee2e2; color: #dc2626; }
     </style>
 </head>
 <body>
@@ -374,6 +406,7 @@
                         <button class="panel-close" onclick="closePanel()">✕</button>
                     </div>
                     <div class="panel-body">
+                        <div class="score-section" id="panelScore" style="display:none;"></div>
                         <div class="panel-row">
                             <div><div class="pfield-label">住所</div><div class="pfield-value" id="panelAddress">-</div></div>
                             <div><div class="pfield-label">中心地距離</div><div class="pfield-value" id="panelDist">-</div></div>
@@ -537,7 +570,14 @@
         return { area:row["エリア番号"]||"", kubun:row["区分"]||"", type:row["施設種類"]||"", name:row["施設名称"]||"",
             city:row["市区町村"]||"", address:row["住所"]||"", lat:row["緯度"]||"", lng:row["経度"]||"",
             reason:row["選定理由"]||"", stock:row["配備した方が良い備蓄品（必須/推奨）"]||"",
-            stockReason:row["備蓄品選定理由"]||"", dist:row["中心地距離"]||"", walk:row["徒歩時間"]||"" };
+            stockReason:row["備蓄品選定理由"]||"", dist:row["中心地距離"]||"", walk:row["徒歩時間"]||"",
+            score_disaster:   row["耐災"]     ||"",
+            score_visibility: row["視認性"]   ||"",
+            score_population: row["近隣人口"] ||"",
+            score_access:     row["アクセス"] ||"",
+            score_land:       row["土地確保"] ||"",
+            score_total:      row["スコア"]   ||""
+        };
     }
 
     const DEMO_AREAS = [{ id:"H-1", name:"広島国際学院高等学校", address:"〒736-0003 広島県安芸郡海田町曽田１−５", desc:"人口・人口分布\n　海田町は約2.9万人の人口を抱え、安芸郡で最も人口密度が高い自治体です。中心地はJR海田市駅から続く平坦地に住宅・学校・商店が密集しており、昼間は学生や駅利用者が、夜間は高層マンションや古くからの戸建て住民が活動の主体となります。\n\n地形・災害特性\n　瀬野川・海田川の堆積による沖積平野で、背後には急傾斜地が迫っています。最大の脅威は河川氾濫（洪水）と、山際の土砂災害です。\n\n過去の被災\n　平成30年7月豪雨では、瀬野川の氾濫や各所での土砂崩れにより甚大な被害を受けました。" }];
@@ -562,6 +602,14 @@
     let hazardOpen=false;
 
     const typeIcons = { "学校":"🏫","スーパー":"🛒","コンビニ":"🏪","ドラッグストア":"💊","病院":"🏥","公民館":"🏛","公園":"🌳","default":"📍" };
+
+    // スコアユーティリティ
+    function scoreClass(v) {
+        const n = parseFloat(v);
+        if (isNaN(n) || v === "") return "";
+        return n >= 80 ? "high" : n >= 70 ? "mid" : "low";
+    }
+    function hasScore(f) { return f.score_total !== "" && !isNaN(parseFloat(f.score_total)); }
 
     // ── Google Maps ──
     async function initMap() {
@@ -651,7 +699,8 @@
         filteredFacilities.forEach((f,i)=>{
             const div=document.createElement("div"); div.className="location-item"; div.id=`item-${i}`;
             const icon=typeIcons[f.type]||typeIcons.default;
-            div.innerHTML=`<div class="item-dist">${f.dist||""}</div><div class="item-top"><span class="time-badge ${f.kubun==="昼間"?"day":"night"}">${f.kubun}</span><span class="type-badge">${icon} ${f.type}</span></div><div class="item-name">${f.name}</div><div class="item-address">${f.city} ${f.address}</div>`;
+            const sc2 = scoreClass(f.score_total);
+            div.innerHTML=`<div class="item-dist">${f.dist||""}</div><div class="item-top"><span class="time-badge ${f.kubun==="昼間"?"day":f.kubun==="夜間"?"night":"bothtime"}">${f.kubun}</span><span class="type-badge">${icon} ${f.type}</span></div><div class="item-name">${f.name}</div><div class="item-address">${f.city} ${f.address}</div>${sc2?`<span class="item-score ${sc2}">総合 ${f.score_total}</span>`:""}`;
             div.onclick=()=>selectFacility(i); list.appendChild(div);
         });
     }
@@ -664,7 +713,16 @@
         filteredFacilities.forEach((f,i)=>{
             if(!f.lat||!f.lng) return;
             const icon=typeIcons[f.type]||typeIcons.default;
-            const el=document.createElement("div"); el.className=`custom-marker ${f.kubun==="昼間"?"day":f.kubun==="夜間"?"night":"bothtime"}`; el.innerHTML=`<span class="marker-inner">${icon}</span>`;
+            const el=document.createElement("div");
+            const sc = scoreClass(f.score_total);
+            if (sc) {
+                const sz = sc==="high"?40:sc==="mid"?32:26;
+                el.className=`custom-marker score-${sc}`;
+                el.style.width = sz+"px"; el.style.height = sz+"px";
+            } else {
+                el.className=`custom-marker ${f.kubun==="昼間"?"day":f.kubun==="夜間"?"night":"bothtime"}`;
+            }
+            el.innerHTML=`<span class="marker-inner" style="font-size:${sc?11:13}px;">${icon}</span>`;
             const marker=new AdvancedMarkerElement({position:{lat:parseFloat(f.lat),lng:parseFloat(f.lng)},map,title:f.name,content:el});
             marker.addListener("click",()=>selectFacility(i)); markerObjects.push({marker,element:el});
             bounds.extend({lat:parseFloat(f.lat),lng:parseFloat(f.lng)});
@@ -694,6 +752,37 @@
         document.getElementById("panelAddress").textContent=`${f.city||""}${f.address?" "+f.address:""}`;
         document.getElementById("panelDist").textContent=f.dist?`${f.dist}（徒歩${f.walk||"-"}）`:"-";
         document.getElementById("panelReason").textContent=f.reason||"-";
+
+        // スコアセクション描画
+        const scoreSection = document.getElementById("panelScore");
+        if (hasScore(f)) {
+            const sc = scoreClass(f.score_total);
+            const items = [
+                { label:"耐災",     val: f.score_disaster   },
+                { label:"視認性",   val: f.score_visibility },
+                { label:"近隣人口", val: f.score_population },
+                { label:"アクセス", val: f.score_access     },
+                { label:"土地確保", val: f.score_land       }
+            ];
+            scoreSection.style.display = "block";
+            scoreSection.innerHTML = `
+                <div class="score-total-row">
+                    <span class="score-total-label">総合スコア</span>
+                    <span class="score-total-badge ${sc}">${f.score_total}</span>
+                </div>
+                ${items.map(({label,val})=>{
+                    const n = parseFloat(val)||0;
+                    const cls = scoreClass(val)||"mid";
+                    return `<div class="score-bar-row">
+                        <span class="score-bar-name">${label}</span>
+                        <div class="score-bar-track"><div class="score-bar-fill ${cls}" style="width:${Math.min(n,100)}%"></div></div>
+                        <span class="score-bar-val">${val||"-"}</span>
+                    </div>`;
+                }).join("")}
+            `;
+        } else {
+            scoreSection.style.display = "none";
+        }
         const box=document.getElementById("panelStocks"); box.innerHTML="";
         const raw=f.stock||""; const reqM=raw.match(/必須[：:]\s*([^／/]+)/); const recM=raw.match(/推奨[：:]\s*([^／/]+)/);
         const req=reqM?reqM[1].split(/[、,，]/).map(s=>s.trim()).filter(Boolean):[];
@@ -1059,8 +1148,7 @@ tr:nth-child(even) td{background:#f9fafb;}
     </div>
     <div class="report-footer">このレポートは防災倉庫マップアプリより自動生成されました。地図データ：国土地理院 / ハザードデータ：国土交通省・都道府県</div>
 </div>
-</body>
-</html>`;
+`;
 
         // ── モーダル表示 ──
         const areaIdR = document.getElementById("areaSelect").value || document.getElementById("areaSelectMobile").value;
@@ -1088,53 +1176,6 @@ tr:nth-child(even) td{background:#f9fafb;}
         reportBtn.disabled = reportBtnM.disabled = false;
         reportBtn.textContent = "📄 レポート生成";
     }
-
-    // generateReport のエラーを確実にキャッチして UI を復元するラッパー
-    function generateReportSafe() {
-        generateReport().catch(err => {
-            console.error("レポート生成エラー:", err);
-            const reportBtn  = document.getElementById("reportBtn");
-            const reportBtnM = document.getElementById("reportBtnMobile");
-            if (reportBtn)  { reportBtn.disabled  = false; reportBtn.textContent  = "📄 レポート生成"; }
-            if (reportBtnM) { reportBtnM.disabled = false; reportBtnM.textContent = "📄"; }
-            alert("レポートの生成中にエラーが発生しました。\n詳細はブラウザのコンソールを確認してください。\n\nエラー: " + err.message);
-        });
-    }
-
-    function closeReportModal(){ document.getElementById("reportModalOverlay").classList.remove("open"); document.body.style.overflow=""; }
-
-    // ── サイドバー ──
-    function toggleSidebar(){ const sb=document.getElementById("sidebar"),ov=document.getElementById("sidebarOverlay"),open=sb.classList.toggle("open"); ov.style.display=open?"block":"none"; }
-    function closeSidebar(){ document.getElementById("sidebar").classList.remove("open"); document.getElementById("sidebarOverlay").style.display="none"; }
-    function setStatus(msg){ document.getElementById("statusBar").innerHTML=`<span class="status-dot"></span>${msg}`; }
-    document.addEventListener("keydown",e=>{ if(e.key==="Escape") closePanel(); });
-</script>
-<script>
-(g=>{var h,a,k,p="The Google Maps JavaScript API",c="google",l="importLibrary",q="__ib__",m=document,b=window;b=b[c]||(b[c]={});var d=b.maps||(b.maps={}),r=new Set,e=new URLSearchParams,u=()=>h||(h=new Promise(async(f,n)=>{await (a=m.createElement("script"));e.set("libraries",[...r]+"");for(k in g)e.set(k.replace(/[A-Z]/g,t=>"_"+t[0].toLowerCase()),g[k]);e.set("language","ja");e.set("callback",c+".maps."+q);a.src=`https://maps.${c}apis.com/maps/api/js?`+e;d[q]=f;a.onerror=()=>h=n(Error(p+" could not load."));a.nonce=m.querySelector("script[nonce]")?.nonce||"";m.head.append(a)}));d[l]?console.warn(p+" only loads once. Ignoring:",g):d[l]=(f,...n)=>r.add(f)&&u().then(()=>d[l](f,...n))})
-({key:"AIzaSyACm4lK4rdatQbwGIwGA1s7Vv74VEXzoZc", v:"weekly"});
-initMap();
-</script>
-</body>
-</html>
-
-    // Google Static Maps URL生成
-    function staticMapUrl(lat, lng, zoom, width, height, markers) {
-        const KEY = "AIzaSyACm4lK4rdatQbwGIwGA1s7Vv74VEXzoZc";
-        let url = `https://maps.googleapis.com/maps/api/staticmap?center=${lat},${lng}&zoom=${zoom}&size=${width}x${height}&scale=2&maptype=roadmap&language=ja&key=${KEY}`;
-        if (markers && markers.length) {
-            const dayM   = markers.filter(f => f.kubun === "昼間");
-            const nightM = markers.filter(f => f.kubun === "夜間");
-            const bothM  = markers.filter(f => f.kubun === "昼夜間");
-            if (dayM.length)   url += "&markers=color:blue|size:small|"   + dayM.map(f   => `${f.lat},${f.lng}`).join("|");
-            if (nightM.length) url += "&markers=color:purple|size:small|" + nightM.map(f => `${f.lat},${f.lng}`).join("|");
-            if (bothM.length)  url += "&markers=color:green|size:small|"  + bothM.map(f  => `${f.lat},${f.lng}`).join("|");
-        }
-        return url;
-    }
-
-    // ══════════════════════════════════════════════════════════
-    // レポート生成
-    // ══════════════════════════════════════════════════════════
 
     // generateReport のエラーを確実にキャッチして UI を復元するラッパー
     function generateReportSafe() {
